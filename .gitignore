@@ -1,17 +1,30 @@
 # Dependencies
 node_modules/
-<<<<<<< HEAD
+*/node_modules/
 .pnp
 .pnp.js
+package-lock.json
+*/package-lock.json
+yarn.lock
+*/yarn.lock
+bun.lockb
+*/bun.lockb
 
 # Testing
 coverage/
+*/coverage/
+coverage.json
+.nyc_output/
 
 # Next.js
 .next/
+*/.next/
 out/
+*/out/
 build/
+*/build/
 dist/
+*/dist/
 
 # Production
 *.log
@@ -25,23 +38,20 @@ lerna-debug.log*
 # Environment files - SENSITIVE DATA
 .env
 .env.*
-.env*.local
-=======
-*/node_modules/
-package-lock.json
-*/package-lock.json
-yarn.lock
-*/yarn.lock
-
-# Environment variables
-.env
->>>>>>> 3312998635c269c2c3daff8a7ed06b99be09553e
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.example
-<<<<<<< HEAD
+*/.env
+*/.env.*
+*/.env.local
+*/.env.development.local
+*/.env.test.local
+*/.env.production.local
+
+# Keep example env files
+!.env.example
+!*/.env.example
 
 # Private keys and secrets
 *.key
@@ -50,107 +60,27 @@ yarn.lock
 **/private_keys/
 secrets/
 config/secrets.json
-
-# Vercel
-.vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
-
-# IDE
-=======
-*/.env
-*/.env.local
-*/.env.development.local
-*/.env.test.local
-*/.env.production.local
-
-# Build outputs
-dist/
-build/
-out/
-.next/
-*/dist/
-*/build/
-*/out/
-*/.next/
-
-# Cache and temporary files
-.cache/
-*.tmp
-*.temp
-.DS_Store
-Thumbs.db
-*/.cache/
-*/*.tmp
-*/*.temp
-
-# IDE and editor files
->>>>>>> 3312998635c269c2c3daff8a7ed06b99be09553e
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-<<<<<<< HEAD
-.DS_Store
-
-# Hardhat - Build artifacts and sensitive data
-cache/
-artifacts/
-typechain-types/
-.openzeppelin/
-deployments/local/
-contracts/node_modules/
-contracts/package-lock.json
-contracts/.env
-contracts/.env.*
-contracts/yarn.lock
-
-# Blockchain/Web3 sensitive files
 *.wallet
 *.keystore
 mnemonic.txt
 seed.txt
 wallet.json
 
-# Frontend sensitive files
-frontend/.env
-frontend/.env.*
-frontend/node_modules/
-frontend/package-lock.json
-frontend/yarn.lock
-frontend/.next/
-frontend/dist/
-frontend/build/
+# Vercel
+.vercel
+*/.vercel
 
-# Misc
-.turbo
-*.pem
-=======
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+*/next-env.d.ts
 
-# Hardhat specific
-contracts/artifacts/
-contracts/cache/
-contracts/typechain-types/
-coverage/
-coverage.json
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# OS generated files
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
 .DS_Store?
 ._*
@@ -158,4 +88,32 @@ pids/
 .Trashes
 ehthumbs.db
 Thumbs.db
->>>>>>> 3312998635c269c2c3daff8a7ed06b99be09553e
+
+# Hardhat - Build artifacts and sensitive data
+cache/
+artifacts/
+typechain-types/
+.openzeppelin/
+deployments/local/
+contracts/cache/
+contracts/artifacts/
+contracts/typechain-types/
+
+# Cache and temporary files
+.cache/
+*/.cache/
+*.tmp
+*.temp
+*/*.tmp
+*/*.temp
+.turbo
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Logs
+logs/
+*/logs/
