@@ -9,8 +9,10 @@
     "deploy:local": "hardhat run scripts/deploy.ts --network hardhat",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "deploy:arb-sepolia": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
+    "deploy:arc": "hardhat run scripts/deploy.ts --network arcTestnet",
     "verify:sepolia": "hardhat verify --network sepolia",
-    "verify:arb-sepolia": "hardhat verify --network arbitrumSepolia"
+    "verify:arb-sepolia": "hardhat verify --network arbitrumSepolia",
+    "verify:arc": "hardhat verify --network arcTestnet"
   },
   "keywords": [],
   "author": "SwiftPay Team",
