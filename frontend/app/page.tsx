@@ -3,6 +3,7 @@ import { UserPanel } from "@/components/panels/UserPanel";
 import { MerchantPanel } from "@/components/panels/MerchantPanel";
 import { MultiChainBalanceOverview } from "@/components/wallet/BalanceDisplay";
 import { WalletButton } from "@/components/wallet/WalletButton";
+import { YellowNetworkPanel, YellowStatusWidget } from "@/components/yellow/YellowNetworkPanel";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,11 @@ export default function Home() {
             {/* Multi-Chain Balance Overview */}
             <div className="mb-6">
               <MultiChainBalanceOverview />
+            </div>
+
+            {/* Yellow Network Status */}
+            <div className="mb-6">
+              <YellowStatusWidget />
             </div>
 
             {/* Integration Test */}
@@ -106,9 +112,9 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-            {/* Original User Panel */}
+            {/* Yellow Network Integration */}
             <div className="border-t pt-6">
-              <UserPanel />
+              <YellowNetworkPanel />
             </div>
           </div>
         </div>
