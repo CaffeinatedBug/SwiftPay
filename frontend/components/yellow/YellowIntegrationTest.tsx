@@ -62,8 +62,8 @@ export default function YellowIntegrationTest() {
     // Test 2: SDK Installation
     addTestResult('Nitrolite SDK', 'pending')
     try {
-      const { createAppSessionMessage, parseRPCResponse } = await import('@erc7824/nitrolite')
-      if (createAppSessionMessage && parseRPCResponse) {
+      const nitrolite = await import('@erc7824/nitrolite')
+      if (typeof nitrolite.createAppSessionMessage === 'function') {
         addTestResult('Nitrolite SDK', 'success', '@erc7824/nitrolite SDK loaded correctly')
       } else {
         addTestResult('Nitrolite SDK', 'error', 'SDK functions not available')

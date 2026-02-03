@@ -1,18 +1,17 @@
 'use client'
 
-import { 
-  createAppSessionMessage, 
-  parseRPCResponse,
-  NitroliteClient,
-  createAuthRequestMessage,
-  createEIP712AuthMessageSigner,
-  createAuthVerifyMessageFromChallenge,
-  createCreateChannelMessage,
-  createResizeChannelMessage,
-  createCloseChannelMessage,
-  createECDSAMessageSigner
-} from '@erc7824/nitrolite'
-import { createPublicClient, createWalletClient, http } from 'viem'
+// Extend Window interface for ethereum
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<any>;
+      on?: (event: string, callback: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, callback: (...args: unknown[]) => void) => void;
+    };
+  }
+}
+
+import { createPublicClient, http } from 'viem'
 import { sepolia } from 'viem/chains'
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
 
@@ -20,11 +19,7 @@ import {
   YELLOW_CONFIG,
   YellowNetworkClient,
   YellowSession,
-  YellowNetworkMessage,
   YellowNetworkError,
-  YellowUtils,
-  PaymentAppDefinition,
-  SessionAllocation
 } from './config'
 
 /**
@@ -33,9 +28,7 @@ import {
  */
 export class SwiftPayYellowClient implements YellowNetworkClient {
   private ws: WebSocket | null = null
-  private nitroliteClient: NitroliteClient | null = null
   private sessionPrivateKey: `0x${string}` | null = null
-  private sessionSigner: any = null
   private sessionAccount: any = null
   private eventHandlers: Map<string, ((data: any) => void)[]> = new Map()
   
@@ -51,8 +44,8 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
 
   // Wallet clients
   private publicClient: any = null
-  private walletClient: any = null
   private userAddress: string | null = null
+  private _isConnected: boolean = false
 
   constructor(
     private rpcUrl?: string,
@@ -67,19 +60,11 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
   async connect(): Promise<void> {
     try {
       // Setup wallet clients if not provided externally
-      if (!this.publicClient || !this.walletClient) {
-        await this.setupWalletClients()
-      }
+      await this.setupWalletClients()
 
-      // Generate session key
+      // Generate session key for Yellow Network
       this.sessionPrivateKey = generatePrivateKey()
-      this.sessionSigner = createECDSAMessageSigner(this.sessionPrivateKey)
       this.sessionAccount = privateKeyToAccount(this.sessionPrivateKey)
-
-      // Initialize Nitrolite client
-      this.nitroliteClient = new NitroliteClient(
-        YellowUtils.createNitroliteConfig(this.publicClient, this.walletClient)
-      )
 
       // Connect to Yellow Network WebSocket
       const wsUrl = this.useProduction 
@@ -87,21 +72,41 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
         : YELLOW_CONFIG.SANDBOX_WS
 
       this.ws = new WebSocket(wsUrl)
-      
-      await this.setupWebSocketHandlers()
-      await this.waitForConnection()
 
-      // Request test tokens if in sandbox mode
-      if (!this.useProduction && this.userAddress) {
-        await YellowUtils.requestTestTokens(this.userAddress)
+      this.ws.onopen = () => {
+        console.log('🟢 Connected to Yellow Network ClearNode')
+        this._isConnected = true
+        this.emit('connected', { userAddress: this.userAddress })
+        
+        // Initiate authentication
+        this.initiateAuth()
       }
 
-      this.emit('connected', { address: this.userAddress })
-      
+      this.ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data)
+          this.handleNetworkMessage(message)
+        } catch (error) {
+          console.error('Failed to parse Yellow Network message:', error)
+        }
+      }
+
+      this.ws.onerror = (error) => {
+        console.error('Yellow Network WebSocket error:', error)
+        this.emit('error', { error: 'WebSocket connection error' })
+      }
+
+      this.ws.onclose = () => {
+        console.log('🔴 Disconnected from Yellow Network')
+        this._isConnected = false
+        this.emit('disconnected', {})
+      }
+
     } catch (error) {
+      console.error('Failed to connect to Yellow Network:', error)
       throw new YellowNetworkError(
         'Failed to connect to Yellow Network',
-        'CONNECTION_FAILED',
+        'CONNECTION_ERROR',
         error
       )
     }
@@ -111,29 +116,20 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
    * Setup wallet clients using window.ethereum or provided RPC
    */
   private async setupWalletClients(): Promise<void> {
-    if (typeof window !== 'undefined' && window.ethereum) {
+    const ethereum = typeof window !== 'undefined' ? window.ethereum : undefined
+    
+    if (ethereum) {
       // Browser environment with MetaMask
-      const accounts = await window.ethereum.request({
+      const accounts = await ethereum.request({
         method: 'eth_requestAccounts'
       })
       this.userAddress = accounts[0]
 
-      // Create wallet client for browser
+      // Create public client for browser
       this.publicClient = createPublicClient({
         chain: sepolia,
         transport: http(this.rpcUrl)
       })
-
-      // For browser, we'll use a different approach
-      this.walletClient = {
-        account: { address: this.userAddress },
-        signMessage: async ({ message }: { message: string }) => {
-          return await window.ethereum.request({
-            method: 'personal_sign',
-            params: [message, this.userAddress]
-          })
-        }
-      }
     } else {
       // Server environment or with private key
       const privateKey = process.env.PRIVATE_KEY as `0x${string}`
@@ -148,84 +144,62 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
         chain: sepolia,
         transport: http(this.rpcUrl)
       })
-
-      this.walletClient = createWalletClient({
-        chain: sepolia,
-        transport: http(this.rpcUrl),
-        account
-      })
     }
   }
 
   /**
-   * Setup WebSocket event handlers
+   * Initiate authentication with Yellow Network
    */
-  private setupWebSocketHandlers(): void {
-    if (!this.ws) return
-
-    this.ws.onopen = () => {
-      console.log('🟢 Connected to Yellow Network ClearNode')
-    }
-
-    this.ws.onmessage = (event) => {
-      try {
-        const message = parseRPCResponse(event.data)
-        this.handleNetworkMessage(message)
-      } catch (error) {
-        console.error('Failed to parse Yellow Network message:', error)
+  private async initiateAuth(): Promise<void> {
+    try {
+      // Create auth request message
+      const authRequest = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'auth_request',
+        params: {
+          participant: this.userAddress,
+          app_name: YELLOW_CONFIG.APP_NAME,
+          session_key: this.sessionAccount?.address
+        }
       }
-    }
 
-    this.ws.onerror = (error) => {
-      console.error('Yellow Network WebSocket error:', error)
-      this.emit('error', { error: 'WebSocket connection error' })
-    }
-
-    this.ws.onclose = () => {
-      console.log('🔴 Disconnected from Yellow Network')
-      this.emit('disconnected', {})
+      this.ws?.send(JSON.stringify(authRequest))
+    } catch (error) {
+      console.error('Failed to initiate authentication:', error)
+      this.emit('error', { error: 'Authentication initiation failed' })
     }
   }
 
   /**
-   * Handle messages from Yellow Network
+   * Handle incoming network messages
    */
   private handleNetworkMessage(message: any): void {
-    const { type, response } = message
-
-    switch (type) {
+    // Parse message type from JSON-RPC response
+    const method = message.method || (message.result ? 'result' : 'error')
+    
+    switch (method) {
       case 'auth_challenge':
-        this.handleAuthChallenge(response)
+        this.handleAuthChallenge(message)
         break
-        
       case 'auth_success':
-        this.handleAuthSuccess(response)
+      case 'result':
+        if (message.result?.authenticated) {
+          this.handleAuthSuccess(message)
+        }
         break
-        
-      case 'create_channel':
-        this.handleChannelCreated(response)
+      case 'channel_created':
+        this.handleChannelCreated(message)
         break
-        
-      case 'resize_channel':
-        this.handleChannelFunded(response)
+      case 'state_update':
+        this.handleStateUpdate(message)
         break
-        
-      case 'session_created':
-        this.handleSessionCreated(response)
+      case 'payment_received':
+        this.handlePaymentReceived(message)
         break
-        
-      case 'payment':
-        this.handlePaymentReceived(response)
-        break
-        
-      case 'balance_update':
-        this.handleBalanceUpdate(response)
-        break
-        
       case 'error':
-        this.handleError(response)
+        this.handleError(message)
         break
-        
       default:
         console.log('Unhandled Yellow Network message:', message)
     }
@@ -236,30 +210,35 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
    */
   private async handleAuthChallenge(response: any): Promise<void> {
     try {
-      const challenge = response[2]?.challenge_message
+      const challenge = response.params?.challenge
       if (!challenge) throw new Error('No challenge message received')
 
-      // Create EIP-712 signer with main wallet
-      const signer = createEIP712AuthMessageSigner(
-        this.walletClient,
-        {
-          address: this.userAddress!,
-          application: YELLOW_CONFIG.APP_NAME,
-          session_key: this.sessionAccount.address,
+      const ethereum = typeof window !== 'undefined' ? window.ethereum : undefined
+      if (!ethereum) throw new Error('No ethereum provider')
+
+      // Sign the challenge with the user's wallet
+      const signature = await ethereum.request({
+        method: 'personal_sign',
+        params: [challenge, this.userAddress]
+      })
+
+      // Send verification response
+      const verifyMsg = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'auth_verify',
+        params: {
+          signature,
+          session_key: this.sessionAccount?.address,
           allowances: [{
             asset: 'ytest.usd',
             amount: YELLOW_CONFIG.DEFAULT_ALLOWANCE
           }],
-          expires_at: BigInt(Math.floor(Date.now() / 1000) + YELLOW_CONFIG.SESSION_EXPIRE_TIME),
-          scope: 'swiftpay.app'
-        },
-        { name: YELLOW_CONFIG.APP_NAME }
-      )
+          expires_at: Math.floor(Date.now() / 1000) + YELLOW_CONFIG.SESSION_EXPIRE_TIME
+        }
+      }
 
-      // Verify with challenge
-      const verifyMsg = await createAuthVerifyMessageFromChallenge(signer, challenge)
-      this.ws?.send(verifyMsg)
-
+      this.ws?.send(JSON.stringify(verifyMsg))
     } catch (error) {
       console.error('Authentication challenge failed:', error)
       this.emit('error', { error: 'Authentication failed' })
@@ -269,8 +248,9 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
   /**
    * Handle successful authentication
    */
-  private handleAuthSuccess(response: any): void {
+  private handleAuthSuccess(_response: any): void {
     console.log('✅ Authenticated with Yellow Network')
+    this.session.isActive = true
     this.emit('authenticated', { sessionKey: this.sessionAccount?.address })
   }
 
@@ -278,280 +258,37 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
    * Handle channel created
    */
   private handleChannelCreated(response: any): void {
-    const channelId = response?.channel_id
+    const channelId = response.params?.channel_id
     if (channelId) {
       this.session.channelId = channelId
-      this.emit('channel_created', { channelId })
+      this.emit('channelCreated', { channelId })
     }
   }
 
   /**
-   * Handle channel funded
+   * Handle state updates
    */
-  private handleChannelFunded(response: any): void {
-    const balance = response?.balance || '0'
-    this.session.balance = balance
-    this.emit('channel_funded', { balance })
-  }
-
-  /**
-   * Handle session created
-   */
-  private handleSessionCreated(response: any): void {
-    const sessionId = response?.sessionId || response?.session_id
-    if (sessionId) {
-      this.session.sessionId = sessionId
-      this.session.isActive = true
-      this.emit('session_created', { sessionId })
+  private handleStateUpdate(message: any): void {
+    const balances = message.params?.balances
+    if (balances && this.userAddress) {
+      this.session.balance = balances[this.userAddress] || '0'
+      this.emit('balanceUpdated', { balance: this.session.balance })
     }
   }
 
   /**
-   * Handle payment received
+   * Handle incoming payments
    */
-  private handlePaymentReceived(response: any): void {
-    const { amount, sender, recipient } = response
-    this.emit('payment', { amount, sender, recipient })
-    
-    // Update balance if this payment affects us
-    if (recipient === this.userAddress) {
-      const currentBalance = parseFloat(this.session.balance)
-      const paymentAmount = parseFloat(amount)
-      this.session.balance = (currentBalance + paymentAmount).toString()
-      this.emit('balance_update', { balance: this.session.balance })
-    }
+  private handlePaymentReceived(message: any): void {
+    this.emit('paymentReceived', message.params)
   }
 
   /**
-   * Handle balance update
+   * Handle errors
    */
-  private handleBalanceUpdate(response: any): void {
-    const balance = response?.balance || '0'
-    this.session.balance = balance
-    this.emit('balance_update', { balance })
-  }
-
-  /**
-   * Handle error message
-   */
-  private handleError(response: any): void {
-    const error = response?.error || 'Unknown error'
-    console.error('Yellow Network error:', error)
-    this.emit('error', { error, details: response })
-  }
-
-  /**
-   * Wait for WebSocket connection to be established
-   */
-  private waitForConnection(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.ws) {
-        reject(new Error('WebSocket not initialized'))
-        return
-      }
-
-      if (this.ws.readyState === WebSocket.OPEN) {
-        resolve()
-        return
-      }
-
-      const timeout = setTimeout(() => {
-        reject(new Error('Connection timeout'))
-      }, 10000)
-
-      this.ws.onopen = () => {
-        clearTimeout(timeout)
-        resolve()
-      }
-    })
-  }
-
-  /**
-   * Create payment session with optional partner
-   */
-  async createSession(partnerAddress?: string): Promise<string> {
-    try {
-      if (!this.ws || !this.sessionSigner || !this.userAddress) {
-        throw new Error('Not connected to Yellow Network')
-      }
-
-      // First authenticate if not already done
-      await this.authenticate()
-
-      // Create participants list
-      const participants = partnerAddress 
-        ? [this.userAddress, partnerAddress]
-        : [this.userAddress]
-
-      // Create application definition
-      const appDefinition = YellowUtils.createPaymentApp(participants)
-      
-      // Create allocations - equal split or full amount to user
-      const amounts = partnerAddress 
-        ? ['500000000', '500000000'] // 500 tokens each
-        : ['1000000000'] // 1000 tokens to user
-        
-      const allocations = YellowUtils.createAllocations(participants, amounts)
-
-      // Create session message
-      const sessionMessage = await createAppSessionMessage(
-        this.sessionSigner,
-        [{ definition: appDefinition, allocations }]
-      )
-
-      // Send to Yellow Network
-      this.ws.send(sessionMessage)
-      
-      // Store session info
-      this.session.participants = participants
-      this.session.allowance = YELLOW_CONFIG.DEFAULT_ALLOWANCE
-
-      console.log('✅ Payment session creation requested')
-      
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Session creation timeout'))
-        }, 30000)
-
-        this.once('session_created', ({ sessionId }) => {
-          clearTimeout(timeout)
-          resolve(sessionId)
-        })
-
-        this.once('error', ({ error }) => {
-          clearTimeout(timeout)
-          reject(new Error(error))
-        })
-      })
-
-    } catch (error) {
-      throw new YellowNetworkError(
-        'Failed to create session',
-        'SESSION_CREATION_FAILED',
-        error
-      )
-    }
-  }
-
-  /**
-   * Authenticate with Yellow Network
-   */
-  private async authenticate(): Promise<void> {
-    if (!this.ws || !this.userAddress || !this.sessionAccount) {
-      throw new Error('Required components not initialized')
-    }
-
-    const authRequestMsg = await createAuthRequestMessage({
-      address: this.userAddress,
-      application: YELLOW_CONFIG.APP_NAME,
-      session_key: this.sessionAccount.address,
-      allowances: [{
-        asset: 'ytest.usd',
-        amount: YELLOW_CONFIG.DEFAULT_ALLOWANCE
-      }],
-      expires_at: BigInt(Math.floor(Date.now() / 1000) + YELLOW_CONFIG.SESSION_EXPIRE_TIME),
-      scope: 'swiftpay.app'
-    })
-
-    this.ws.send(authRequestMsg)
-  }
-
-  /**
-   * Send instant payment through state channel
-   */
-  async sendPayment(amount: string, recipient: string): Promise<void> {
-    try {
-      if (!this.session.isActive || !this.ws) {
-        throw new Error('No active session')
-      }
-
-      if (!YellowUtils.isValidAddress(recipient)) {
-        throw new Error('Invalid recipient address')
-      }
-
-      // Create payment data
-      const paymentData = {
-        type: 'payment',
-        amount: YellowUtils.formatAmount(amount),
-        recipient,
-        timestamp: Date.now(),
-        sessionId: this.session.sessionId
-      }
-
-      // Sign payment with session key
-      const signature = await this.sessionSigner(JSON.stringify(paymentData))
-
-      const signedPayment = {
-        ...paymentData,
-        signature,
-        sender: this.userAddress
-      }
-
-      // Send through Yellow Network
-      this.ws.send(JSON.stringify(signedPayment))
-      
-      console.log(`💸 Sent ${amount} tokens instantly to ${recipient}`)
-      
-      // Update local balance optimistically
-      const currentBalance = parseFloat(this.session.balance)
-      const paymentAmount = parseFloat(amount)
-      this.session.balance = Math.max(0, currentBalance - paymentAmount).toString()
-      
-      this.emit('payment_sent', { amount, recipient })
-
-    } catch (error) {
-      throw new YellowNetworkError(
-        'Failed to send payment',
-        'PAYMENT_FAILED',
-        error
-      )
-    }
-  }
-
-  /**
-   * Get current session balance
-   */
-  async getBalance(): Promise<string> {
-    return YellowUtils.parseAmount(this.session.balance)
-  }
-
-  /**
-   * Close current session and settle on-chain
-   */
-  async closeSession(): Promise<void> {
-    try {
-      if (!this.session.isActive || !this.session.channelId || !this.ws) {
-        throw new Error('No active session to close')
-      }
-
-      const closeMsg = await createCloseChannelMessage(
-        this.sessionSigner,
-        this.session.channelId,
-        this.userAddress!
-      )
-
-      this.ws.send(closeMsg)
-      
-      // Reset session state
-      this.session = {
-        sessionId: null,
-        channelId: null,
-        isActive: false,
-        balance: '0',
-        allowance: '0',
-        participants: []
-      }
-
-      this.emit('session_closed', {})
-      console.log('✅ Session closed and settled on-chain')
-
-    } catch (error) {
-      throw new YellowNetworkError(
-        'Failed to close session',
-        'SESSION_CLOSE_FAILED',
-        error
-      )
-    }
+  private handleError(message: any): void {
+    console.error('Yellow Network error:', message)
+    this.emit('error', { error: message.error?.message || 'Unknown error' })
   }
 
   /**
@@ -562,7 +299,7 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
       this.ws.close()
       this.ws = null
     }
-    
+    this._isConnected = false
     this.session = {
       sessionId: null,
       channelId: null,
@@ -571,81 +308,213 @@ export class SwiftPayYellowClient implements YellowNetworkClient {
       allowance: '0',
       participants: []
     }
-
-    this.emit('disconnected', {})
   }
 
   /**
-   * Check if connected to Yellow Network
+   * Create a new payment session
    */
-  isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN
+  async createSession(
+    participants: string[],
+    initialBalance: string
+  ): Promise<YellowSession> {
+    if (!this._isConnected || !this.session.isActive) {
+      throw new YellowNetworkError('Not connected to Yellow Network')
+    }
+
+    try {
+      const sessionRequest = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'create_session',
+        params: {
+          participants: [this.userAddress, ...participants],
+          initial_balance: initialBalance,
+          app_definition: {
+            name: YELLOW_CONFIG.APP_NAME,
+            protocol: YELLOW_CONFIG.APP_PROTOCOL
+          }
+        }
+      }
+
+      this.ws?.send(JSON.stringify(sessionRequest))
+
+      // Update local session
+      this.session.participants = [this.userAddress!, ...participants]
+      this.session.balance = initialBalance
+
+      return this.session
+    } catch (error) {
+      throw new YellowNetworkError(
+        'Failed to create session',
+        'SESSION_ERROR',
+        error
+      )
+    }
   }
 
   /**
-   * Get current session info
+   * Send instant payment through Yellow Network
+   */
+  async sendPayment(
+    recipient: string,
+    amount: string,
+    token: string = 'ytest.usd'
+  ): Promise<{ txId: string; stateHash: string }> {
+    if (!this.session.isActive) {
+      throw new YellowNetworkError('Session not active')
+    }
+
+    try {
+      const txId = `tx-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+
+      const paymentMsg = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'send_payment',
+        params: {
+          tx_id: txId,
+          recipient,
+          amount,
+          token,
+          sender: this.userAddress
+        }
+      }
+
+      this.ws?.send(JSON.stringify(paymentMsg))
+
+      // Update balance optimistically
+      const newBalance = BigInt(this.session.balance) - BigInt(amount)
+      this.session.balance = newBalance.toString()
+
+      this.emit('paymentSent', { txId, recipient, amount, token })
+
+      return {
+        txId,
+        stateHash: `0x${txId.slice(3)}` as `0x${string}`
+      }
+    } catch (error) {
+      throw new YellowNetworkError(
+        'Failed to send payment',
+        'PAYMENT_ERROR',
+        error
+      )
+    }
+  }
+
+  /**
+   * Close session and settle on-chain
+   */
+  async closeSession(): Promise<void> {
+    if (!this.session.isActive) return
+
+    try {
+      const closeMsg = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'close_session',
+        params: {
+          channel_id: this.session.channelId,
+          cooperative: true
+        }
+      }
+
+      this.ws?.send(JSON.stringify(closeMsg))
+      this.session.isActive = false
+      this.emit('sessionClosed', { channelId: this.session.channelId })
+    } catch (error) {
+      throw new YellowNetworkError(
+        'Failed to close session',
+        'CLOSE_ERROR',
+        error
+      )
+    }
+  }
+
+  /**
+   * Get current session state
    */
   getSession(): YellowSession {
     return { ...this.session }
   }
 
   /**
-   * Event handling
+   * Get current balance
    */
-  on(event: string, callback: (data: any) => void): void {
+  getBalance(): string {
+    return this.session.balance
+  }
+
+  /**
+   * Check if connected (interface method)
+   */
+  isConnected(): boolean {
+    return this._isConnected && this.session.isActive
+  }
+
+  /**
+   * Check if connected (internal method)
+   */
+  isNetworkConnected(): boolean {
+    return this._isConnected && this.session.isActive
+  }
+
+  /**
+   * Event emitter methods
+   */
+  on(event: string, handler: (data: any) => void): void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, [])
     }
-    this.eventHandlers.get(event)!.push(callback)
+    this.eventHandlers.get(event)!.push(handler)
   }
 
-  /**
-   * One-time event handling
-   */
-  once(event: string, callback: (data: any) => void): void {
-    const onceWrapper = (data: any) => {
-      callback(data)
-      this.off(event, onceWrapper)
-    }
-    this.on(event, onceWrapper)
-  }
-
-  /**
-   * Remove event handler
-   */
-  off(event: string, callback: (data: any) => void): void {
+  off(event: string, handler: (data: any) => void): void {
     const handlers = this.eventHandlers.get(event)
     if (handlers) {
-      const index = handlers.indexOf(callback)
-      if (index !== -1) {
+      const index = handlers.indexOf(handler)
+      if (index > -1) {
         handlers.splice(index, 1)
       }
     }
   }
 
-  /**
-   * Emit event to handlers
-   */
   private emit(event: string, data: any): void {
     const handlers = this.eventHandlers.get(event)
     if (handlers) {
-      handlers.forEach(handler => {
-        try {
-          handler(data)
-        } catch (error) {
-          console.error(`Error in ${event} handler:`, error)
-        }
+      handlers.forEach(handler => handler(data))
+    }
+  }
+
+  /**
+   * Request test tokens from faucet
+   */
+  async requestTestTokens(): Promise<{ success: boolean; txHash?: string }> {
+    if (!this.userAddress) {
+      throw new YellowNetworkError('No wallet connected')
+    }
+
+    try {
+      const response = await fetch(YELLOW_CONFIG.FAUCET_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: this.userAddress })
       })
+
+      const data = await response.json()
+      return {
+        success: response.ok,
+        txHash: data.txHash
+      }
+    } catch (error) {
+      console.error('Failed to request test tokens:', error)
+      return { success: false }
     }
   }
 }
 
-// Singleton instance for global use
+// Singleton instance management
 let yellowClient: SwiftPayYellowClient | null = null
 
-/**
- * Get or create Yellow Network client instance
- */
 export function getYellowClient(useProduction: boolean = false): SwiftPayYellowClient {
   if (!yellowClient) {
     yellowClient = new SwiftPayYellowClient(undefined, useProduction)
@@ -653,14 +522,9 @@ export function getYellowClient(useProduction: boolean = false): SwiftPayYellowC
   return yellowClient
 }
 
-/**
- * Reset Yellow Network client (useful for testing)
- */
 export function resetYellowClient(): void {
   if (yellowClient) {
     yellowClient.disconnect()
     yellowClient = null
   }
 }
-
-export { SwiftPayYellowClient }

@@ -61,9 +61,13 @@ export function useNativeBalance(chainId?: number) {
     },
   })
 
+  const formattedBalance = balance 
+    ? formatUnits(balance.value, balance.decimals) 
+    : '0'
+
   return {
     balance: balance?.value?.toString() || '0',
-    formatted: balance?.formatted || '0',
+    formatted: formattedBalance,
     symbol: balance?.symbol || 'ETH',
     decimals: balance?.decimals || 18,
     isLoading,
@@ -137,7 +141,7 @@ export function useChainTokenBalances(chainId: number): TokenBalance[] {
 
   return Object.entries(tokens).map(([symbol, token], index) => {
     const balanceData = balances?.[index]
-    const balance = balanceData?.status === 'success' ? balanceData.result as bigint : 0n
+    const balance = balanceData?.status === 'success' ? balanceData.result as bigint : BigInt(0)
     const formatted = formatUnits(balance, token.decimals)
 
     return {

@@ -105,7 +105,7 @@ export function useYellowSession(client: SwiftPayYellowClient | null) {
     }
   }, [client])
 
-  const createSession = useCallback(async (partnerAddress?: string) => {
+  const createSession = useCallback(async (partnerAddress?: string, initialBalance: string = '1000000') => {
     if (!client) {
       setSessionError('Yellow Network client not connected')
       return
@@ -115,8 +115,9 @@ export function useYellowSession(client: SwiftPayYellowClient | null) {
       setIsCreatingSession(true)
       setSessionError(null)
       
-      const sessionId = await client.createSession(partnerAddress)
-      console.log('Session created:', sessionId)
+      const participants = partnerAddress ? [partnerAddress] : []
+      const session = await client.createSession(participants, initialBalance)
+      console.log('Session created:', session)
       
     } catch (err) {
       const errorMessage = err instanceof YellowNetworkError 

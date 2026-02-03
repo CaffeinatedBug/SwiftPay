@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import React, { useEffect, useCallback, useState } from 'react'
 import { useWallet } from '@/lib/web3/hooks'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -192,5 +192,5 @@ export function RealTimeBalanceProvider({ children }: { children: React.ReactNod
   useBalanceNotifications()
   useWebSocketUpdates()
 
-  return <>{children}</>
+  return React.createElement(React.Fragment, null, children)
 }

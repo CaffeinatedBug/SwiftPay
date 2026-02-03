@@ -1,22 +1,6 @@
 'use client'
 
-import { 
-  createAppSessionMessage, 
-  parseRPCResponse,
-  NitroliteClient,
-  WalletStateSigner,
-  createECDSAMessageSigner,
-  createAuthRequestMessage,
-  createEIP712AuthMessageSigner,
-  createAuthVerifyMessageFromChallenge,
-  createCreateChannelMessage,
-  createResizeChannelMessage,
-  createCloseChannelMessage
-} from '@erc7824/nitrolite'
-import { createPublicClient, createWalletClient, http } from 'viem'
 import { sepolia } from 'viem/chains'
-import { privateKeyToAccount } from 'viem/accounts'
-import { generatePrivateKey } from 'viem/accounts'
 
 // Yellow Network Configuration
 export const YELLOW_CONFIG = {
@@ -29,13 +13,13 @@ export const YELLOW_CONFIG = {
   
   // Contract addresses on Sepolia testnet
   SEPOLIA_CONTRACTS: {
-    custody: '0x019B65A265EB3363822f2752141b3dF16131b262',
-    adjudicator: '0x7c7ccbc98469190849BCC6c926307794fDfB11F2',
-    token: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' // ytest.usd
+    custody: '0x019B65A265EB3363822f2752141b3dF16131b262' as `0x${string}`,
+    adjudicator: '0x7c7ccbc98469190849BCC6c926307794fDfB11F2' as `0x${string}`,
+    token: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as `0x${string}` // ytest.usd
   },
   
   // Channel configuration
-  CHALLENGE_DURATION: 3600n, // 1 hour in seconds
+  CHALLENGE_DURATION: BigInt(3600), // 1 hour in seconds
   CHAIN_ID: sepolia.id,
   
   // Session configuration  
@@ -51,9 +35,9 @@ export const YELLOW_CONFIG = {
 export interface YellowNetworkClient {
   connect(): Promise<void>
   disconnect(): void
-  createSession(partnerAddress?: string): Promise<string>
-  sendPayment(amount: string, recipient: string): Promise<void>
-  getBalance(): Promise<string>
+  createSession(participants: string[], initialBalance: string): Promise<YellowSession>
+  sendPayment(recipient: string, amount: string, token?: string): Promise<{ txId: string; stateHash: string }>
+  getBalance(): string
   closeSession(): Promise<void>
   isConnected(): boolean
   on(event: string, callback: (data: any) => void): void
@@ -189,33 +173,5 @@ export const YellowUtils = {
    */
   isValidAddress: (address: string): boolean => {
     return /^0x[a-fA-F0-9]{40}$/.test(address)
-  },
-
-  /**
-   * Create Nitrolite client configuration
-   */
-  createNitroliteConfig: (
-    publicClient: any,
-    walletClient: any
-  ) => ({
-    publicClient,
-    walletClient,
-    stateSigner: new WalletStateSigner(walletClient),
-    addresses: YELLOW_CONFIG.SEPOLIA_CONTRACTS,
-    chainId: YELLOW_CONFIG.CHAIN_ID,
-    challengeDuration: YELLOW_CONFIG.CHALLENGE_DURATION,
-  })
-}
-
-// Export main types and utilities
-export type {
-  PaymentAppDefinition,
-  SessionAllocation,
-  YellowNetworkMessage,
-  YellowSession
-}
-
-export {
-  YellowNetworkError,
-  YellowUtils
+  }
 }

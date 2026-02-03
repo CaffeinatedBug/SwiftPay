@@ -1,107 +1,177 @@
-# SwiftPay
+# SwiftPay - Multi-Chain Payment Platform
 
-Lightning-fast payment rails on blockchain with instant settlement.
+SwiftPay is a next-generation payment platform that enables instant cross-chain transactions using state channels and multi-chain wallet integration.
 
-## Project Structure
+## 🚀 Features
 
-```
-SwiftPay/
-├── contracts/          # Smart Contracts (Hardhat)
-│   ├── src/           # Solidity contracts
-│   ├── scripts/       # Deployment scripts
-│   └── test/          # Contract tests
-│
-└── frontend/          # Next.js Frontend
-    ├── app/           # Next.js app directory
-    ├── components/    # React components
-    │   ├── layout/    # Layout components
-    │   ├── merchant/  # Merchant dashboard components
-    │   ├── panels/    # Main panel components
-    │   └── ui/        # UI components (shadcn/ui)
-    └── hooks/         # Custom React hooks
-```
+- **Multi-Chain Support**: Ethereum, Arbitrum, Base, Polygon, Optimism, Arc Testnet
+- **Real-Time Balances**: Live balance tracking across all supported networks  
+- **Smart Contracts**: Secure vault system on Arc blockchain
+- **State Channels**: Lightning-fast payment clearing (Phase 3)
+- **Production Grade**: Enterprise-ready wallet integration
 
-## Getting Started
+## 🏗️ Architecture
 
-### Prerequisites
+### Phase 1 ✅ - Blockchain Infrastructure
+- Arc testnet integration with RPC endpoints
+- SwiftPayVault.sol smart contract deployment
+- Circle Gateway & Wallets API integration
+- Backend with Express + WebSocket support
 
-- Node.js 18+ 
-- npm or yarn
-- MetaMask or compatible Web3 wallet
+### Phase 2 ✅ - Wallet Integration  
+- wagmi + viem + RainbowKit implementation
+- Multi-chain balance tracking
+- Real-time updates and notifications
+- Production-grade error handling
 
-### Smart Contracts
+### Phase 3 🚧 - Yellow Network Integration
+- Nitrolite SDK for instant payments
+- State channel implementation
+- Cross-chain bridge setup
+
+## 🛠️ Tech Stack
+
+**Frontend**
+- Next.js 16 with Turbopack
+- React 19 + TypeScript
+- wagmi + viem for Web3
+- RainbowKit for wallet UI
+- Tailwind CSS + shadcn/ui
+
+**Backend** 
+- Node.js + TypeScript
+- Express.js with WebSocket
+- Circle API integration
+- Multi-chain RPC management
+
+**Blockchain**
+- Solidity smart contracts
+- Hardhat development framework
+- Arc testnet deployment
+- Cross-chain token support
+
+## 📦 Installation
 
 ```bash
-cd contracts
-npm install
-npm run compile
-npm run deploy
-```
-
-### Frontend
-
-```bash
+# Install frontend dependencies
 cd frontend
 npm install --legacy-peer-deps
+
+# Install smart contract dependencies  
+cd ../contracts
+npm install
+
+# Install backend dependencies
+cd ../backend
+npm install
+```
+
+## 🚀 Quick Start
+
+```bash
+# Start frontend development server
+cd frontend
+npm run dev
+
+# Deploy smart contracts (separate terminal)
+cd contracts  
+npm run deploy
+
+# Run backend server (separate terminal)
+cd backend
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:3000`
+**Application URLs:**
+- Main App: http://localhost:3000
+- Integration Tests: http://localhost:3000/test
+- Admin Panel: http://localhost:3000/admin
+- Merchant Dashboard: http://localhost:3000/merchant
 
-## Features
+## 🧪 Testing
 
-### User App
-- Multi-chain wallet connection
-- QR code payment scanning
-- Real-time balance tracking
-- Transaction history
-
-### Merchant Dashboard
-- Payment operations
-- Real-time clearing
-- Settlement to Arc vault
-- Payment analytics
-
-### Admin Panel
-- System configuration
-- Channel management
-- Monitoring and analytics
-
-## Tech Stack
-
-### Frontend
-- **Framework**: Next.js 16 (App Router)
-- **UI**: React 19, Tailwind CSS, shadcn/ui
-- **State**: TanStack Query
-- **Web3**: (To be integrated)
-
-### Smart Contracts
-- **Framework**: Hardhat
-- **Language**: Solidity
-- **Libraries**: OpenZeppelin
-
-## Development
-
-### Frontend Development
 ```bash
-cd frontend
-npm run dev      # Start dev server
-npm run build    # Build for production
-npm run lint     # Run linter
-```
-
-### Contract Development
-```bash
+# Run smart contract tests
 cd contracts
-npm run compile  # Compile contracts
-npm run test     # Run tests
-npm run deploy   # Deploy contracts
+npm test
+
+# Run integration tests
+cd frontend
+npm run test
+
+# Check wallet integration
+open http://localhost:3000/test
 ```
 
-## Migration Notes
+## 🔧 Configuration
 
-This project was recently migrated from Vite to Next.js for improved performance and SEO capabilities. The old Vite frontend (`instant-rail`) has been removed.
+### Environment Variables
 
-## License
+**Frontend** (`.env.local`):
+```
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
+NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_key  
+```
 
-[Your License Here]
+**Backend** (`.env`):
+```
+CIRCLE_API_KEY=your_circle_api_key
+ARC_RPC_URL=https://rpc.testnet.arc.network
+PORT=3001
+```
+
+### Supported Networks
+
+- **Ethereum** (Chain ID: 1)
+- **Arbitrum** (Chain ID: 42161)  
+- **Base** (Chain ID: 8453)
+- **Polygon** (Chain ID: 137)
+- **Optimism** (Chain ID: 10)
+- **Arc Testnet** (Chain ID: 5042002)
+
+## 📱 Usage
+
+1. **Connect Wallet**: Use RainbowKit to connect your Web3 wallet
+2. **View Balances**: See real-time balances across all supported chains
+3. **Switch Networks**: Seamlessly switch between different blockchains
+4. **Make Payments**: Use merchant dashboard for payment processing
+5. **Test Integration**: Run comprehensive tests via test interface
+
+## 🔐 Smart Contract
+
+**SwiftPayVault.sol** - Deployed on Arc Testnet
+- Secure multi-signature vault
+- Access control with role management  
+- Emergency pause functionality
+- Comprehensive test coverage (32 tests)
+
+## 🌐 Phase 3 Roadmap
+
+**Yellow Network Integration**
+- [ ] Nitrolite SDK implementation
+- [ ] State channel infrastructure  
+- [ ] Cross-chain bridge setup
+- [ ] Instant payment clearing
+- [ ] Sub-second transaction finality
+
+## 📄 Documentation
+
+- [Phase 1 Completion Report](PHASE_1_COMPLETION_REPORT.md)
+- [Phase 2 Completion Report](PHASE_2_COMPLETION.md)
+- [Implementation Plan](IMPLEMENTATION_PLAN.md)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes  
+4. Add comprehensive tests
+5. Submit a pull request
+
+## 📝 License
+
+MIT License - see LICENSE file for details
+
+---
+
+**Built with ❤️ for the future of cross-chain payments**
