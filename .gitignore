@@ -117,3 +117,6 @@ pids/
 # Logs
 logs/
 */logs/
+
+# Old Vite frontend (migrated to Next.js in /frontend)
+instant-rail/
