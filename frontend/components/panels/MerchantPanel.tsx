@@ -11,6 +11,8 @@ import { PaymentsTable } from "@/components/merchant/PaymentsTable";
 import { SettlementFlowPanel } from "@/components/merchant/SettlementFlowPanel";
 import { QuickStats } from "@/components/merchant/QuickStats";
 import { QRPaymentModal } from "@/components/merchant/QRPaymentModal";
+import { POSTerminal } from "@/components/merchant/POSTerminal";
+import { ChannelHealthMonitor } from "@/components/merchant/ChannelHealthMonitor";
 import { toast } from "sonner";
 
 type PaymentStatus = "waiting" | "success";
@@ -22,11 +24,11 @@ export function MerchantPanel() {
   const [pendingBalance] = useState("2,450.00");
   const [clearedBalance] = useState("12,847.50");
 
-  const handlePaymentReceived = () => {
+  const handlePaymentReceived = (payment?: any) => {
     setPaymentStatus("success");
     setShowQRModal(false);
     toast.success("Payment received!", {
-      description: "$25.00 USDC has been credited to your account.",
+      description: `$${payment?.amount || '25.00'} ${payment?.currency || 'USDC'} has been credited to your account.`,
     });
     setTimeout(() => setPaymentStatus("waiting"), 3000);
   };
@@ -114,54 +116,18 @@ export function MerchantPanel() {
         </Dialog>
       </div>
 
-      {/* POS Quick Access */}
-      <Card
-        className={`mb-6 border-border/50 bg-secondary/20 transition-all duration-500 ${
-          paymentStatus === "success"
-            ? "border-success glow-green-intense"
-            : ""
-        }`}
-      >
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 font-mono text-sm">
-            {paymentStatus === "success" ? (
-              <CheckCircle2 className="h-4 w-4 text-success" />
-            ) : (
-              <Clock className="h-4 w-4 text-primary" />
-            )}
-            POS_TERMINAL
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {paymentStatus === "success" ? (
-            <div className="flex flex-col items-center py-4">
-              <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-success/20">
-                <CheckCircle2 className="h-10 w-10 text-success" />
-              </div>
-              <h3 className="font-mono text-xl font-bold text-success">
-                PAYMENT RECEIVED
-              </h3>
-              <p className="font-mono text-lg text-foreground">$25.00 USDC</p>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Generate QR for customer payment
-                </p>
-              </div>
-              <Button
-                onClick={() => setShowQRModal(true)}
-                variant="outline"
-                className="gap-2 border-primary/50 font-mono hover:border-primary hover:bg-primary/10"
-              >
-                <QrCode className="h-4 w-4" />
-                Show QR
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Enhanced POS Terminal */}
+      <div className="mb-6">
+        <POSTerminal 
+          onGenerateQR={() => setShowQRModal(true)}
+          onPaymentComplete={handlePaymentReceived}
+        />
+      </div>
+
+      {/* Channel Health Monitor */}
+      <div className="mb-6">
+        <ChannelHealthMonitor />
+      </div>
 
       {/* QR Payment Modal */}
       <QRPaymentModal
