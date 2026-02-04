@@ -5,8 +5,8 @@ export default function Home() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Left Side - USER APP (50%) */}
-      <div className="flex w-1/2 flex-col border-r border-border">
-        <div className="border-b border-border bg-background px-6 py-4">
+      <div className="flex w-1/2 flex-col border-r border-border overflow-hidden">
+        <div className="shrink-0 border-b border-border bg-background px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
@@ -22,7 +22,7 @@ export default function Home() {
           </div>
         </div>
         
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <UserPanel />
         </div>
       </div>

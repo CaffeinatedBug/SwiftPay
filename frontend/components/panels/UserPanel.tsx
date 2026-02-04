@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Wallet, QrCode, ArrowUpRight, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Wallet, QrCode, ArrowUpRight, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnimatedBalance } from "@/components/ui/animated-balance";
@@ -17,20 +17,18 @@ import { useToast } from "@/hooks/use-toast";
 // Chain configuration with colors
 const chainConfig: Record<string, { color: string; logo: string }> = {
   Arbitrum: { color: "#28A0F0", logo: "◆" },
+  "Arbitrum One": { color: "#28A0F0", logo: "◆" },
   Base: { color: "#0052FF", logo: "◉" },
   Polygon: { color: "#8247E5", logo: "⬡" },
   Ethereum: { color: "#627EEA", logo: "⟠" },
+  Mainnet: { color: "#627EEA", logo: "⟠" },
   Optimism: { color: "#FF0420", logo: "◎" },
+  "OP Mainnet": { color: "#FF0420", logo: "◎" },
+  Sepolia: { color: "#627EEA", logo: "⟠" },
 };
 
-// Mock wallet data fetched from MetaMask
-const mockWalletAssets: TokenAsset[] = [
-  { symbol: "ETH", name: "Ethereum", chain: "Arbitrum", balance: 2.4521, usdValue: 4521.89, icon: "⟠" },
-  { symbol: "USDC", name: "USD Coin", chain: "Base", balance: 1250.0, usdValue: 1250.0, icon: "◈" },
-  { symbol: "USDT", name: "Tether", chain: "Polygon", balance: 890.5, usdValue: 890.5, icon: "₮" },
-  { symbol: "WETH", name: "Wrapped ETH", chain: "Optimism", balance: 0.8432, usdValue: 1554.78, icon: "⟠" },
-  { symbol: "DAI", name: "Dai", chain: "Ethereum", balance: 425.0, usdValue: 425.0, icon: "◇" },
-];
+// Approximate ETH price for USD conversion (in production, fetch from API)
+const ETH_PRICE_USD = 2500;
 
 const mockTransactions = [
   { id: 1, merchant: "Coffee Shop", amount: "5.00", token: "USDC", time: "2 min ago", status: "cleared" },
@@ -48,21 +46,70 @@ interface ScannedPaymentData {
 
 export function UserPanel() {
   const wallet = useWallet();
-  const [selectedAsset, setSelectedAsset] = useState(mockWalletAssets[1]);
-  const [totalBalance, setTotalBalance] = useState(0);
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [scannedPayment, setScannedPayment] = useState<ScannedPaymentData | null>(null);
   const { toast } = useToast();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Calculate total balance on mount/connection
-  useEffect(() => {
-    if (wallet.isConnected) {
-      const total = mockWalletAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
-      setTotalBalance(total);
+  // Build real wallet assets from connected wallet
+  const walletAssets: TokenAsset[] = useMemo(() => {
+    if (!wallet.isConnected || !wallet.currentChain) return [];
+    
+    const assets: TokenAsset[] = [];
+    const chainName = wallet.currentChain.name || "Ethereum";
+    
+    // Add native token (ETH/MATIC etc)
+    const nativeBalance = parseFloat(wallet.nativeBalance.formatted || "0");
+    if (nativeBalance > 0 || wallet.isConnected) {
+      assets.push({
+        symbol: wallet.nativeBalance.symbol || "ETH",
+        name: wallet.currentChain.nativeCurrency?.name || "Ether",
+        chain: chainName,
+        balance: nativeBalance,
+        usdValue: nativeBalance * ETH_PRICE_USD,
+        icon: "⟠",
+      });
     }
-  }, [wallet.isConnected]);
+    
+    // Add ERC20 tokens from current chain
+    wallet.currentChainTokens.forEach((tokenBalance) => {
+      const balance = parseFloat(tokenBalance.formatted || "0");
+      if (balance > 0) {
+        // For stablecoins, use 1:1 USD value
+        const isStablecoin = ["USDC", "USDT", "DAI"].includes(tokenBalance.token.symbol);
+        const usdValue = isStablecoin ? balance : balance * ETH_PRICE_USD;
+        
+        assets.push({
+          symbol: tokenBalance.token.symbol,
+          name: tokenBalance.token.name,
+          chain: chainName,
+          balance: balance,
+          usdValue: usdValue,
+          icon: tokenBalance.token.symbol === "USDC" ? "◈" : 
+                tokenBalance.token.symbol === "USDT" ? "₮" : 
+                tokenBalance.token.symbol === "DAI" ? "◇" : "●",
+        });
+      }
+    });
+    
+    return assets;
+  }, [wallet.isConnected, wallet.currentChain, wallet.nativeBalance, wallet.currentChainTokens]);
+
+  // Selected asset state
+  const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null);
+  
+  // Auto-select first asset when wallet connects
+  useEffect(() => {
+    if (walletAssets.length > 0 && !selectedAsset) {
+      setSelectedAsset(walletAssets[0]);
+    }
+  }, [walletAssets, selectedAsset]);
+
+  // Calculate total balance from real assets
+  const totalBalance = useMemo(() => {
+    return walletAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
+  }, [walletAssets]);
 
   // Handle QR scan success - chain to payment modal
   const handleScanSuccess = (data: ScannedPaymentData) => {
@@ -85,7 +132,7 @@ export function UserPanel() {
   };
 
   return (
-    <div ref={panelRef} className="relative flex h-full flex-col overflow-auto p-6">
+    <div ref={panelRef} className="relative flex h-full flex-col p-6">
       {/* Wallet Connection & Profile */}
       <div className="mb-6 flex items-center justify-end">
         <UserProfileDropdown />
@@ -114,23 +161,41 @@ export function UserPanel() {
             <div className="space-y-6">
               {/* Primary Balance Display */}
               <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-6 glow-yellow">
-                <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
-                  Available Balance
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Available Balance
+                  </p>
+                  {wallet.nativeBalance.isLoading && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  )}
+                </div>
                 <AnimatedBalance value={totalBalance} className="mb-1" />
-                <p className="text-sm text-muted-foreground">
-                  Across {mockWalletAssets.length} assets on {new Set(mockWalletAssets.map(a => a.chain)).size} chains
-                </p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {wallet.currentChain && (
+                    <>
+                      <span 
+                        className="inline-flex items-center gap-1"
+                        style={{ color: chainConfig[wallet.currentChain.name]?.color || "#627EEA" }}
+                      >
+                        {chainConfig[wallet.currentChain.name]?.logo || "⟠"}
+                        {wallet.currentChain.name}
+                      </span>
+                      <span>•</span>
+                    </>
+                  )}
+                  <span>{wallet.nativeBalance.formatted ? parseFloat(wallet.nativeBalance.formatted).toFixed(4) : "0"} {wallet.nativeBalance.symbol}</span>
+                </div>
               </div>
 
               {/* Token Selector */}
-              <div className="space-y-2">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Select Asset to Pay
-                </span>
-                
-                <TokenSelectorModal
-                  assets={mockWalletAssets}
+              {walletAssets.length > 0 && selectedAsset && (
+                <div className="space-y-2">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Select Asset to Pay
+                  </span>
+                  
+                  <TokenSelectorModal
+                    assets={walletAssets}
                   selectedAsset={selectedAsset}
                   onSelect={setSelectedAsset}
                   trigger={
@@ -179,7 +244,17 @@ export function UserPanel() {
                     </button>
                   }
                 />
-              </div>
+                </div>
+              )}
+              
+              {/* Empty state when no tokens */}
+              {walletAssets.length === 0 && (
+                <div className="rounded-lg border border-border/50 bg-secondary/20 p-4 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No tokens found on {wallet.currentChain?.name || "this chain"}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center py-8">
@@ -196,7 +271,7 @@ export function UserPanel() {
       </Card>
 
       {/* Scan & Pay Button */}
-      {wallet.isConnected && (
+      {wallet.isConnected && selectedAsset && (
         <Card className="status-card mb-6 scanner-line">
           <CardContent className="flex flex-col items-center py-8">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary/10 pulse-ready">
@@ -211,7 +286,7 @@ export function UserPanel() {
               Scan QR & Pay
             </Button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Paying with {selectedAsset.balance} {selectedAsset.symbol} on {selectedAsset.chain}
+              Paying with {selectedAsset.balance.toFixed(4)} {selectedAsset.symbol} on {selectedAsset.chain}
             </p>
           </CardContent>
         </Card>
@@ -229,7 +304,7 @@ export function UserPanel() {
       <PaymentConfirmationModal
         open={showPaymentModal}
         onOpenChange={setShowPaymentModal}
-        payment={scannedPayment ? {
+        payment={scannedPayment && selectedAsset ? {
           ...scannedPayment,
           token: selectedAsset,
         } : null}
