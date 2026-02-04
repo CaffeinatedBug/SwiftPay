@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Wallet, QrCode, ArrowUpRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,10 @@ import { AnimatedBalance } from "@/components/ui/animated-balance";
 import { ChainBadge } from "@/components/ui/chain-badge";
 import { TokenSelectorModal, TokenAsset } from "@/components/ui/token-selector-modal";
 import { PaymentConfirmationModal } from "@/components/ui/payment-confirmation-modal";
+import { InlineQRScanner } from "@/components/ui/inline-qr-scanner";
+import { UserProfileDropdown } from "@/components/layout/UserProfileDropdown";
+import { WalletButton } from "@/components/wallet/WalletButton";
+import { useWallet } from "@/lib/web3/hooks";
 import { useToast } from "@/hooks/use-toast";
 
 // Chain configuration with colors
@@ -34,47 +38,57 @@ const mockTransactions = [
   { id: 3, merchant: "Restaurant", amount: "32.50", token: "USDC", time: "3 hours ago", status: "settled" },
 ];
 
-// Mock scanned payment data
-const mockScannedPayment = {
-  merchantAddress: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-  merchantName: "Demo Coffee Shop",
-  amount: 12.50,
-  currency: "USDC",
-};
+// Payment data type for scanned QR
+interface ScannedPaymentData {
+  merchantAddress: string;
+  merchantName: string;
+  amount: number;
+  currency: string;
+}
 
 export function UserPanel() {
-  const [isConnected, setIsConnected] = useState(false);
+  const wallet = useWallet();
   const [selectedAsset, setSelectedAsset] = useState(mockWalletAssets[1]);
   const [totalBalance, setTotalBalance] = useState(0);
+  const [showScannerModal, setShowScannerModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [scannedPayment, setScannedPayment] = useState<ScannedPaymentData | null>(null);
   const { toast } = useToast();
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Calculate total balance on mount/connection
   useEffect(() => {
-    if (isConnected) {
+    if (wallet.isConnected) {
       const total = mockWalletAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
       setTotalBalance(total);
     }
-  }, [isConnected]);
+  }, [wallet.isConnected]);
+
+  // Handle QR scan success - chain to payment modal
+  const handleScanSuccess = (data: ScannedPaymentData) => {
+    setScannedPayment(data);
+    setShowScannerModal(false);
+    // Small delay to let scanner close, then open payment modal
+    setTimeout(() => {
+      setShowPaymentModal(true);
+    }, 300);
+  };
 
   const handlePaymentConfirm = () => {
-    toast({
-      title: "Payment Successful",
-      description: `Paid $${mockScannedPayment.amount} to ${mockScannedPayment.merchantName}`,
-    });
+    if (scannedPayment) {
+      toast({
+        title: "Payment Successful",
+        description: `Paid $${scannedPayment.amount} to ${scannedPayment.merchantName}`,
+      });
+      setScannedPayment(null);
+    }
   };
 
   return (
-    <div className="flex h-full flex-col overflow-auto p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="terminal-header mb-1">USER_APP</h2>
-        <h1 className="font-mono text-2xl font-bold text-foreground">
-          Payment Terminal
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Scan QR codes and pay instantly from any chain
-        </p>
+    <div ref={panelRef} className="relative flex h-full flex-col overflow-auto p-6">
+      {/* Wallet Connection & Profile */}
+      <div className="mb-6 flex items-center justify-end">
+        <UserProfileDropdown />
       </div>
 
       {/* Wallet Connection / Balance Card */}
@@ -85,18 +99,18 @@ export function UserPanel() {
               <Wallet className="h-4 w-4 text-primary" />
               WALLET_STATUS
             </div>
-            {isConnected && (
+            {wallet.isConnected && wallet.address && (
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
                 <span className="font-mono text-xs text-muted-foreground">
-                  0x7a2...4f3e
+                  {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
                 </span>
               </div>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isConnected ? (
+          {wallet.isConnected ? (
             <div className="space-y-6">
               {/* Primary Balance Display */}
               <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-6 glow-yellow">
@@ -175,20 +189,14 @@ export function UserPanel() {
               <p className="mb-4 text-center text-sm text-muted-foreground">
                 Connect your wallet to view balances<br />and start paying
               </p>
-              <Button
-                onClick={() => setIsConnected(true)}
-                className="w-full glow-yellow font-mono"
-              >
-                <Wallet className="mr-2 h-4 w-4" />
-                Connect MetaMask
-              </Button>
+              <WalletButton className="w-full glow-yellow font-mono" />
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Scan & Pay Button */}
-      {isConnected && (
+      {wallet.isConnected && (
         <Card className="status-card mb-6 scanner-line">
           <CardContent className="flex flex-col items-center py-8">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary/10 pulse-ready">
@@ -196,7 +204,7 @@ export function UserPanel() {
             </div>
             <Button
               size="lg"
-              onClick={() => setShowPaymentModal(true)}
+              onClick={() => setShowScannerModal(true)}
               className="glow-yellow-intense font-mono text-lg"
             >
               <QrCode className="mr-2 h-5 w-5" />
@@ -209,19 +217,27 @@ export function UserPanel() {
         </Card>
       )}
 
+      {/* QR Scanner Modal - contained within this panel */}
+      <InlineQRScanner
+        open={showScannerModal}
+        onOpenChange={setShowScannerModal}
+        onScanSuccess={handleScanSuccess}
+        containerRef={panelRef}
+      />
+
       {/* Payment Confirmation Modal */}
       <PaymentConfirmationModal
         open={showPaymentModal}
         onOpenChange={setShowPaymentModal}
-        payment={{
-          ...mockScannedPayment,
+        payment={scannedPayment ? {
+          ...scannedPayment,
           token: selectedAsset,
-        }}
+        } : null}
         onConfirm={handlePaymentConfirm}
       />
 
       {/* Recent Transactions */}
-      {isConnected && (
+      {wallet.isConnected && (
         <Card className="status-card flex-1">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 font-mono text-sm">

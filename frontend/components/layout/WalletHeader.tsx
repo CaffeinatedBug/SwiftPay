@@ -1,6 +1,7 @@
 'use client'
 
 import { WalletButton, WalletStatus, ChainSwitcher, ConnectionIndicator } from '@/components/wallet/WalletButton'
+import { UserProfileDropdown } from './UserProfileDropdown'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
@@ -53,30 +54,8 @@ export function WalletHeader() {
         <div className="flex items-center gap-3">
           {wallet.isConnected && (
             <>
-              {/* Balance summary */}
-              <div className="hidden md:flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Balance:</span>
-                <span className="font-mono font-medium">
-                  {parseFloat(wallet.nativeBalance.formatted).toFixed(4)} {wallet.nativeBalance.symbol}
-                </span>
-              </div>
-
-              {/* Quick refresh */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleQuickRefresh}
-                disabled={isRefreshing || wallet.nativeBalance.isLoading}
-                className="p-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-
-              {/* Chain switcher */}
-              <ChainSwitcher />
-
-              {/* Wallet status dropdown */}
-              <WalletStatus />
+              {/* User Profile Dropdown */}
+              <UserProfileDropdown />
             </>
           )}
 
@@ -84,39 +63,8 @@ export function WalletHeader() {
           {!wallet.isConnected && (
             <WalletButton variant="default" size="default" />
           )}
-
-          {/* Settings (placeholder for future features) */}
-          <Button variant="ghost" size="sm" className="p-2">
-            <Settings className="h-4 w-4" />
-          </Button>
         </div>
       </div>
-
-      {/* Optional secondary bar for additional info */}
-      {wallet.isConnected && wallet.currentChainTokens.length > 0 && (
-        <div className="border-t bg-muted/30 px-6 py-2">
-          <div className="flex items-center gap-4 overflow-x-auto">
-            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-              Token Balances:
-            </span>
-            
-            {wallet.currentChainTokens.slice(0, 4).map((tokenBalance) => (
-              <div key={tokenBalance.token.symbol} className="flex items-center gap-1 text-xs whitespace-nowrap">
-                <span className="font-medium">{tokenBalance.token.symbol}:</span>
-                <span className="font-mono">
-                  {tokenBalance.isLoading ? '•••' : parseFloat(tokenBalance.formatted).toFixed(4)}
-                </span>
-              </div>
-            ))}
-            
-            {wallet.currentChainTokens.length > 4 && (
-              <span className="text-xs text-muted-foreground">
-                +{wallet.currentChainTokens.length - 4} more
-              </span>
-            )}
-          </div>
-        </div>
-      )}
     </header>
   )
 }

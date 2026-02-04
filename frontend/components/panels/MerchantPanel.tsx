@@ -10,7 +10,7 @@ import { BalanceHeroCard } from "@/components/merchant/BalanceHeroCard";
 import { PaymentsTable } from "@/components/merchant/PaymentsTable";
 import { SettlementFlowPanel } from "@/components/merchant/SettlementFlowPanel";
 import { QuickStats } from "@/components/merchant/QuickStats";
-import { QRPaymentModal } from "@/components/merchant/QRPaymentModal";
+import { InlineQRDisplay } from "@/components/merchant/InlineQRDisplay";
 import { POSTerminal } from "@/components/merchant/POSTerminal";
 import { ChannelHealthMonitor } from "@/components/merchant/ChannelHealthMonitor";
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ import { toast } from "sonner";
 type PaymentStatus = "waiting" | "success";
 
 export function MerchantPanel() {
-  const [showQRModal, setShowQRModal] = useState(false);
+  const [showInlineQR, setShowInlineQR] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("waiting");
   const [showSettlement, setShowSettlement] = useState(false);
   const [pendingBalance] = useState("2,450.00");
@@ -26,7 +26,7 @@ export function MerchantPanel() {
 
   const handlePaymentReceived = (payment?: any) => {
     setPaymentStatus("success");
-    setShowQRModal(false);
+    setShowInlineQR(false);
     toast.success("Payment received!", {
       description: `$${payment?.amount || '25.00'} ${payment?.currency || 'USDC'} has been credited to your account.`,
     });
@@ -42,28 +42,18 @@ export function MerchantPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-auto p-6">
-      {/* Header with Admin Button */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h2 className="terminal-header mb-1">MERCHANT_DASHBOARD</h2>
-          <h1 className="font-mono text-2xl font-bold text-foreground">
-            Payment Operations
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Real-time clearing • Instant settlement on Arc
-          </p>
-        </div>
-        
+      {/* Admin Button - Top Right */}
+      <div className="mb-6 flex justify-end">
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2 border-primary/50 hover:border-primary hover:bg-primary/10">
+            <Button variant="outline" size="sm" className="gap-2 rounded-full border-gray-300 hover:border-gray-400 hover:bg-gray-50">
               <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Admin</span>
+              <span>Admin Panel</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto border-primary/30 bg-background">
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto bg-white">
             <DialogHeader>
-              <DialogTitle className="terminal-header">ADMIN_PANEL</DialogTitle>
+              <DialogTitle className="font-semibold">Admin Panel</DialogTitle>
             </DialogHeader>
             <AdminPanel embedded />
           </DialogContent>
@@ -119,25 +109,25 @@ export function MerchantPanel() {
       {/* Enhanced POS Terminal */}
       <div className="mb-6">
         <POSTerminal 
-          onGenerateQR={() => setShowQRModal(true)}
+          onGenerateQR={() => setShowInlineQR(true)}
           onPaymentComplete={handlePaymentReceived}
         />
       </div>
+
+      {/* Inline QR Display */}
+      {showInlineQR && (
+        <div className="mb-6 animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <InlineQRDisplay 
+            onClose={() => setShowInlineQR(false)}
+            onPaymentReceived={handlePaymentReceived}
+          />
+        </div>
+      )}
 
       {/* Channel Health Monitor */}
       <div className="mb-6">
         <ChannelHealthMonitor />
       </div>
-
-      {/* QR Payment Modal */}
-      <QRPaymentModal
-        open={showQRModal}
-        onOpenChange={setShowQRModal}
-        amount="25.00"
-        currency="USDC"
-        chain="arbitrum"
-        onPaymentReceived={handlePaymentReceived}
-      />
 
       {/* Payments Table */}
       <div className="flex-1">
