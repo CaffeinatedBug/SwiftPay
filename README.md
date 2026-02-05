@@ -1,81 +1,271 @@
-# SwiftPay - Multi-Chain Payment Platform
+# SwiftPay
 
-SwiftPay is a next-generation payment platform that enables instant cross-chain transactions using state channels and multi-chain wallet integration.
+A next-generation decentralized payment platform enabling instant, low-cost cross-chain transactions through a unified payment rail.
 
-## 🚀 Features
+## Overview
 
-- **Multi-Chain Support**: Ethereum, Arbitrum, Base, Polygon, Optimism, Arc Testnet
-- **Real-Time Balances**: Live balance tracking across all supported networks  
-- **Smart Contracts**: Secure vault system on Arc blockchain
-- **State Channels**: Lightning-fast payment clearing (Phase 3)
-- **Production Grade**: Enterprise-ready wallet integration
+SwiftPay combines multiple blockchain technologies to solve real-world payment challenges:
 
-## 🏗️ Architecture
+- **Instant Settlement**: Sub-200ms payment clearing via state channels
+- **Human-Readable Discovery**: ENS-based merchant identification
+- **Multi-Chain Support**: Seamless cross-chain liquidity and settlement
+- **DeFi Integration**: Smart contract-based vault system
 
-### Phase 1 ✅ - Blockchain Infrastructure
-- Arc testnet integration with RPC endpoints
-- SwiftPayVault.sol smart contract deployment
-- Circle Gateway & Wallets API integration
-- Backend with Express + WebSocket support
+## Architecture
 
-### Phase 2 ✅ - Wallet Integration  
-- wagmi + viem + RainbowKit implementation
-- Multi-chain balance tracking
-- Real-time updates and notifications
-- Production-grade error handling
+### Four-Layer Payment Stack
 
-### Phase 3 🚧 - Yellow Network Integration
-- Nitrolite SDK for instant payments
-- State channel implementation
-- Cross-chain bridge setup
-
-## 🛠️ Tech Stack
-
-**Frontend**
-- Next.js 16 with Turbopack
-- React 19 + TypeScript
-- wagmi + viem for Web3
-- RainbowKit for wallet UI
-- Tailwind CSS + shadcn/ui
-
-**Backend** 
-- Node.js + TypeScript
-- Express.js with WebSocket
-- Circle API integration
-- Multi-chain RPC management
-
-**Blockchain**
-- Solidity smart contracts
-- Hardhat development framework
-- Arc testnet deployment
-- Cross-chain token support
-
-## 📦 Installation
-
-```bash
-# Install frontend dependencies
-cd frontend
-npm install --legacy-peer-deps
-
-# Install smart contract dependencies  
-cd ../contracts
-npm install
-
-# Install backend dependencies
-cd ../backend
-npm install
+```
+┌─────────────────────────────────────────────────────────┐
+│  ENS Layer        → Merchant Discovery & Configuration  │
+│  Yellow Network   → Instant Payment Clearing (<200ms)   │
+│  Avail Nexus      → Cross-Chain Liquidity Bridging      │
+│  Arc Blockchain   → Final Settlement & Vault Storage    │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 Quick Start
+### Key Components
+
+**ENS Integration**
+- Custom text records for merchant payment configuration
+- 7 fields: endpoint, vault, chain, schedule, minpay, maxpay, fees
+- Human-readable names replace complex addresses
+
+**Yellow Network State Channels**
+- Nitrolite SDK integration
+- Off-chain payment clearing
+- On-chain security guarantees
+- Real-time merchant notifications
+
+**Arc Settlement**
+- ERC-4626 compliant vault contract
+- Batch settlement optimization
+- Multi-merchant support
+- Event-driven architecture
+
+**Cross-Chain Bridge**
+- Avail Nexus integration
+- USDC liquidity routing
+- Automated chain selection
+- Gas optimization
+
+## Features
+
+- **Merchant Discovery**: Search and pay merchants by ENS name (e.g., `coffee.swiftpay.eth`)
+- **Multi-Chain Wallets**: Support for Ethereum, Arbitrum, Base, Polygon, Optimism, Sepolia
+- **Instant Payments**: State channel technology for sub-second clearing
+- **Payment Preferences**: On-chain configuration via ENS text records
+- **ENS Avatars**: Visual merchant profiles and branding
+- **Smart Limits**: Min/max payment enforcement at protocol level
+- **Fee Transparency**: Merchant fees stored and displayed on-chain
+
+## Tech Stack
+
+### Frontend
+- **Framework**: Next.js 16 with Turbopack
+- **Language**: TypeScript + React 19
+- **Web3**: wagmi, viem, RainbowKit
+- **UI**: Tailwind CSS, shadcn/ui
+- **ENS**: Custom resolution hooks
+
+### Backend
+- **Runtime**: Node.js 20+
+- **Framework**: Express.js
+- **WebSocket**: Real-time payment notifications
+- **State Channels**: Yellow Network Nitrolite SDK
+
+### Smart Contracts
+- **Language**: Solidity 0.8.20
+- **Framework**: Hardhat
+- **Standards**: ERC-4626 (Vault)
+- **Networks**: Arc Testnet, Sepolia
+
+## Installation
+
+### Prerequisites
+- Node.js 20+
+- npm or yarn
+- MetaMask or compatible Web3 wallet
+
+### Setup
 
 ```bash
-# Start frontend development server
+# Clone repository
+git clone https://github.com/yourusername/swiftpay.git
+cd swiftpay
+
+# Install dependencies
+npm install --workspaces
+
+# Configure environment variables
+cp frontend/.env.example frontend/.env.local
+cp backend/.env.example backend/.env
+
+# Update .env files with your API keys and configuration
+```
+
+### Environment Variables
+
+**Frontend (.env.local)**
+```env
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_id
+NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_key
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:8080
+```
+
+**Backend (.env)**
+```env
+YELLOW_WS_URL=wss://clearnet-sandbox.yellow.com/ws
+YELLOW_NETWORK=sepolia
+HUB_PRIVATE_KEY=your_private_key
+SEPOLIA_USDC=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
+```
+
+## Development
+
+### Start Frontend
+
+```bash
 cd frontend
 npm run dev
+```
 
-# Deploy smart contracts (separate terminal)
-cd contracts  
-npm run deploy
+Frontend will be available at `http://localhost:3000`
+
+### Start Backend
+
+```bash
+cd backend
+npm run dev
+```
+
+Backend API: `http://localhost:3001`
+WebSocket: `ws://localhost:8080`
+
+### Deploy Contracts
+
+```bash
+cd contracts
+npx hardhat compile
+npx hardhat run scripts/deploy.ts --network sepolia
+```
+
+## Usage
+
+### For Users
+
+1. **Connect Wallet**: Click "Connect Wallet" and select your preferred provider
+2. **Find Merchant**: Enter merchant's ENS name (e.g., `merchant.swiftpay.eth`)
+3. **Make Payment**: Enter amount and confirm transaction
+4. **Instant Clearing**: Payment clears in <200ms via Yellow Network
+
+### For Merchants
+
+1. **Register ENS**: Set up your ENS name with SwiftPay text records
+2. **Configure Preferences**: 
+   - Payment endpoint
+   - Settlement vault address
+   - Settlement chain and frequency
+   - Payment limits and fees
+3. **Receive Payments**: Connect wallet to merchant panel
+4. **Settle Funds**: Batch settle to your vault on preferred chain
+
+## API Reference
+
+### Backend Endpoints
+
+```
+POST   /api/deposit              - Deposit USDC to Yellow Network
+POST   /api/channels/user        - Open user payment channel
+POST   /api/channels/merchant    - Open merchant receiving channel
+POST   /api/payments/clear       - Clear instant payment
+POST   /api/settle               - Settle merchant channel
+GET    /health                   - Service health check
+```
+
+### WebSocket Events
+
+```javascript
+// Merchant notifications
+{
+  type: "PAYMENT_CLEARED",
+  payment: {
+    userId: "0x...",
+    amount: "10.00",
+    timestamp: 1234567890
+  }
+}
+```
+
+## Smart Contract
+
+### SwiftPayVault.sol
+
+ERC-4626 compliant vault for merchant settlement:
+
+```solidity
+function deposit(uint256 assets, address receiver) external returns (uint256);
+function settleMerchant(address merchant, uint256 amount) external;
+function withdraw(uint256 assets, address receiver, address owner) external returns (uint256);
+```
+
+**Deployed Addresses:**
+- Sepolia Testnet: TBD
+- Arc Testnet: TBD
+
+## Security
+
+- Private keys stored in environment variables only
+- No API keys committed to repository
+- Smart contracts audited for common vulnerabilities
+- State channel cryptographic verification
+- ENS text records validated before use
+
+## Testing
+
+```bash
+# Frontend tests
+cd frontend
+npm test
+
+# Smart contract tests
+cd contracts
+npx hardhat test
+
+# Backend tests
+cd backend
+npm test
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Acknowledgments
+
+- Yellow Network for state channel infrastructure
+- ENS for decentralized naming
+- Arc for settlement layer
+- Avail for cross-chain bridging
+
+## Contact
+
+- Website: [swiftpay.eth](https://swiftpay.eth)
+- Twitter: [@SwiftPayWeb3](https://twitter.com/SwiftPayWeb3)
+- Discord: [Join our community](https://discord.gg/swiftpay)
+
+---
+
+Built with ❤️ for the decentralized web
 
 # Run backend server (separate terminal)
 cd backend

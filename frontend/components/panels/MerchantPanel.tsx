@@ -14,12 +14,16 @@ import { InlineQRDisplay } from "@/components/merchant/InlineQRDisplay";
 import { POSTerminal } from "@/components/merchant/POSTerminal";
 import { ChannelHealthMonitor } from "@/components/merchant/ChannelHealthMonitor";
 import { useYellowNetwork } from "@/hooks/useYellowNetwork";
+import { useReverseENS } from "@/hooks/useSwiftPayENS";
+import { useAccount } from "wagmi";
 import { toast } from "sonner";
 
 type PaymentStatus = "waiting" | "success";
 
 export function MerchantPanel() {
   const yellow = useYellowNetwork();
+  const { address } = useAccount();
+  const { ensName, loading: ensLoading } = useReverseENS(address || null, 'sepolia');
   const [showInlineQR, setShowInlineQR] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("waiting");
   const [showSettlement, setShowSettlement] = useState(false);
@@ -60,11 +64,31 @@ export function MerchantPanel() {
   return (
     <div className="flex h-full flex-col overflow-auto p-6">
       {/* Admin Button - Top Right */}
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex items-center justify-between">
+        {/* Merchant ENS Identity */}
+        {ensName && (
+          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+            <span className="text-xs text-muted-foreground">Identity:</span>
+            <span className="font-mono text-sm font-semibold text-primary">{ensName}</span>
+            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-primary">ENS Verified</span>
+          </div>
+        )}
+        
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 rounded-full border-gray-300 hover:border-gray-400 hover:bg-gray-50">
               <Settings className="h-4 w-4" />
+              <span>Admin Panel</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto bg-white">
+            <DialogHeader>
+              <DialogTitle className="font-semibold">Admin Panel</DialogTitle>
+            </DialogHeader>
+            <AdminPanel embedded />
+          </DialogContent>
+        </Dialog>
+      </div>
               <span>Admin Panel</span>
             </Button>
           </DialogTrigger>

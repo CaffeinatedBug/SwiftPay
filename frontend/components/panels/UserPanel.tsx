@@ -14,6 +14,7 @@ import { WalletButton } from "@/components/wallet/WalletButton";
 import { useWallet } from "@/lib/web3/hooks";
 import { useToast } from "@/hooks/use-toast";
 import { useYellowNetwork } from "@/hooks/useYellowNetwork";
+import { ENSMerchantInput } from "@/components/merchant/ENSMerchantInput";
 
 // Chain configuration with colors
 const chainConfig: Record<string, { color: string; logo: string }> = {
@@ -37,7 +38,7 @@ const mockTransactions = [
   { id: 3, merchant: "Restaurant", amount: "32.50", token: "USDC", time: "3 hours ago", status: "settled" },
 ];
 
-// Payment data type for scanned QR
+// Payment data type for scanned QR or ENS-resolved merchant
 interface ScannedPaymentData {
   merchantAddress: string;
   merchantName: string;
@@ -45,12 +46,24 @@ interface ScannedPaymentData {
   currency: string;
 }
 
+// Merchant info from ENS resolution
+interface MerchantInfo {
+  address: string;
+  ensName?: string;
+  endpoint: string;
+  vault?: string;
+  chain?: string;
+  schedule?: string;
+}
+
 export function UserPanel() {
   const wallet = useWallet();
   const yellow = useYellowNetwork();
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showENSSearch, setShowENSSearch] = useState(false);
   const [scannedPayment, setScannedPayment] = useState<ScannedPaymentData | null>(null);
+  const [selectedMerchant, setSelectedMerchant] = useState<MerchantInfo | null>(null);
   const { toast } = useToast();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -145,7 +158,18 @@ export function UserPanel() {
         title: "Payment Failed",
         description: error.message || "Failed to process payment",
         variant: "destructive"
-      });
+    
+
+  // Handle ENS merchant selection
+  const handleMerchantSelected = (merchantInfo: MerchantInfo) => {
+    setSelectedMerchant(merchantInfo);
+    setShowENSSearch(false);
+    
+    toast({
+      title: "✅ Merchant Found via ENS",
+      description: `${merchantInfo.ensName || merchantInfo.address} - Settlement: ${merchantInfo.chain?.toUpperCase() || 'SEPOLIA'}`,
+    });
+  };  });
     }
   };
 
@@ -275,24 +299,118 @@ export function UserPanel() {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center py-8">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/50">
-                <Wallet className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <p className="mb-4 text-center text-sm text-muted-foreground">
-                Connect your wallet to view balances<br />and start paying
-              </p>
-              <WalletButton className="w-full glow-yellow font-mono" />
+          ENS Merchant Search */}
+      {wallet.isConnected && selectedAsset && !selectedMerchant && (
+        <Card className="status-card mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 font-mono text-sm">
+              🌐 FIND_MERCHANT
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ENSMerchantInput 
+              onMerchantSelected={handleMerchantSelected}
+              network="sepolia"
+              placeholder="Enter ENS name (e.g., coffee.swiftpay.eth)"
+            />
+            <div className="mt-4 flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowScannerModal(true)}
+                className="flex-1"
+              >
+                <QrCode className="mr-2 h-4 w-4" />
+                Or Scan QR
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Scan & Pay Button */}
-      {wallet.isConnected && selectedAsset && (
-        <Card className="status-card mb-6 scanner-line">
-          <CardContent className="flex flex-col items-center py-8">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary/10 pulse-ready">
+      {/* Selected Merchant Payment */}
+      {wallet.isConnected && selectedAsset && selectedMerchant && (
+        <Card className="status-card mb-6 glow-yellow">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between font-mono text-sm">
+              <span>💳 READY_TO_PAY</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMerchant(null)}
+                className="h-6 text-xs"
+              >
+                Change Merchant
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Merchant Info */}
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Merchant</span>
+                {selectedMerchant.ensName && (
+                  <span className="rounded-full bg-primary/20 px-2 py-0.5 font-mono text-xs text-primary">
+                    ENS Verified
+                  </span>
+                )}
+              </div>
+              <div className="mb-1 font-mono text-lg font-bold">
+                {selectedMerchant.ensName || `${selectedMerchant.address.slice(0, 6)}...${selectedMerchant.address.slice(-4)}`}
+              </div>
+              {selectedMerchant.vault && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Settlement: {selectedMerchant.chain?.toUpperCase()} • {selectedMerchant.schedule || 'instant'}
+                </div>
+              )}
+            </div>
+
+            {/* Payment Amount Input */}
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Amount ({selectedAsset.symbol})</label>
+              <input
+                type="number"
+                placeholder="0.00"
+                className="w-full rounded-lg border border-primary/30 bg-background p-3 font-mono text-lg"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const amount = parseFloat((e.target as HTMLInputElement).value);
+                    if (amount > 0) {
+                      setScannedPayment({
+                        merchantAddress: selectedMerchant.address,
+                        merchantName: selectedMerchant.ensName || 'Merchant',
+                        amount,
+                        currency: selectedAsset.symbol,
+                      });
+                      setShowPaymentModal(true);
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            {/* Quick Amount Buttons */}
+            <div className="grid grid-cols-4 gap-2">
+              {[5, 10, 25, 50].map((amount) => (
+                <Button
+                  key={amount}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setScannedPayment({
+                      merchantAddress: selectedMerchant.address,
+                      merchantName: selectedMerchant.ensName || 'Merchant',
+                      amount,
+                      currency: selectedAsset.symbol,
+                    });
+                    setShowPaymentModal(true);
+                  }}
+                  className="font-mono"
+                >
+                  ${amount}
+                </Button>
+              ))}
+            </divv className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary/10 pulse-ready">
               <QrCode className="h-10 w-10 text-primary" />
             </div>
             <Button

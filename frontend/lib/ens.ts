@@ -9,7 +9,8 @@
  * - swiftpay.schedule: Settlement frequency (instant, daily, weekly)
  */
 
-import { createPublicClient, http, normalize } from 'viem';
+import { createPublicClient, http } from 'viem';
+import { normalize } from 'viem/ens';
 import { mainnet, sepolia } from 'viem/chains';
 
 const ENS_TEXT_KEYS = {
