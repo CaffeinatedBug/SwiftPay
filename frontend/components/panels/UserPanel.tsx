@@ -13,6 +13,7 @@ import { UserProfileDropdown } from "@/components/layout/UserProfileDropdown";
 import { WalletButton } from "@/components/wallet/WalletButton";
 import { useWallet } from "@/lib/web3/hooks";
 import { useToast } from "@/hooks/use-toast";
+import { useYellowNetwork } from "@/hooks/useYellowNetwork";
 
 // Chain configuration with colors
 const chainConfig: Record<string, { color: string; logo: string }> = {
@@ -46,6 +47,7 @@ interface ScannedPaymentData {
 
 export function UserPanel() {
   const wallet = useWallet();
+  const yellow = useYellowNetwork();
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [scannedPayment, setScannedPayment] = useState<ScannedPaymentData | null>(null);
@@ -121,13 +123,29 @@ export function UserPanel() {
     }, 300);
   };
 
-  const handlePaymentConfirm = () => {
-    if (scannedPayment) {
+  const handlePaymentConfirm = async () => {
+    if (!scannedPayment) return;
+    
+    try {
+      // Clear payment via Yellow Network (<200ms instant)
+      await yellow.clearPayment(
+        scannedPayment.merchantAddress,
+        scannedPayment.amount.toString()
+      );
+      
       toast({
-        title: "Payment Successful",
-        description: `Paid $${scannedPayment.amount} to ${scannedPayment.merchantName}`,
+        title: "⚡ Payment Cleared Instantly",
+        description: `Paid $${scannedPayment.amount} to ${scannedPayment.merchantName} via Yellow Network`,
       });
+      
       setScannedPayment(null);
+      setShowPaymentModal(false);
+    } catch (error: any) {
+      toast({
+        title: "Payment Failed",
+        description: error.message || "Failed to process payment",
+        variant: "destructive"
+      });
     }
   };
 

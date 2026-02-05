@@ -69,11 +69,10 @@ export function PaymentConfirmationModal({
 
   const handlePay = async () => {
     setState("signing");
-    // Simulate MetaMask signing
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Real payment via Yellow Network will be handled by parent component
+    // This just manages UI states
     setState("processing");
-    // Simulate Yellow Network clearing
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 300));
     setState("success");
   };
 

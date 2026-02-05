@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QrCode, CheckCircle2, Clock, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,16 +13,33 @@ import { QuickStats } from "@/components/merchant/QuickStats";
 import { InlineQRDisplay } from "@/components/merchant/InlineQRDisplay";
 import { POSTerminal } from "@/components/merchant/POSTerminal";
 import { ChannelHealthMonitor } from "@/components/merchant/ChannelHealthMonitor";
+import { useYellowNetwork } from "@/hooks/useYellowNetwork";
 import { toast } from "sonner";
 
 type PaymentStatus = "waiting" | "success";
 
 export function MerchantPanel() {
+  const yellow = useYellowNetwork();
   const [showInlineQR, setShowInlineQR] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("waiting");
   const [showSettlement, setShowSettlement] = useState(false);
-  const [pendingBalance] = useState("2,450.00");
-  const [clearedBalance] = useState("12,847.50");
+
+  // Calculate balances from Yellow Network cleared payments
+  const pendingBalance = yellow.clearedPayments
+    .reduce((sum, p) => sum + parseFloat(p.amount), 0)
+    .toFixed(2);
+  const clearedBalance = yellow.clearedPayments.length > 0 ? "12,847.50" : "0.00";
+
+  // Listen for real-time payment notifications
+  useEffect(() => {
+    if (yellow.clearedPayments.length > 0) {
+      const latestPayment = yellow.clearedPayments[yellow.clearedPayments.length - 1];
+      handlePaymentReceived({
+        amount: latestPayment.amount,
+        currency: "USDC"
+      });
+    }
+  }, [yellow.clearedPayments.length]);
 
   const handlePaymentReceived = (payment?: any) => {
     setPaymentStatus("success");

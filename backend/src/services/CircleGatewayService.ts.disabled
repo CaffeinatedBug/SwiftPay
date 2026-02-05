@@ -1,4 +1,5 @@
-import { CircleApi, Configuration } from '@circle-fin/core';
+// @circle-fin/core removed - using Yellow Network instead
+// import { CircleApi, Configuration } from '@circle-fin/core';
 import { ethers } from 'ethers';
 import { logger } from '../utils/logger';
 

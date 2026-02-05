@@ -61,7 +61,7 @@ export function SettlementFlowPanel({
     { 
       id: "bridge", 
       label: "Bridge", 
-      sublabel: "LI.FI Protocol",
+      sublabel: "Yellow Network",
       icon: ArrowRightLeft,
       status: currentStep > 2 ? "complete" : currentStep === 2 ? "active" : "pending"
     },
@@ -276,7 +276,7 @@ export function SettlementFlowPanel({
               Route
             </div>
             <div className="mt-1 font-mono text-sm font-medium text-foreground">
-              LI.FI Optimal
+              Yellow Direct
             </div>
           </div>
           <div>
