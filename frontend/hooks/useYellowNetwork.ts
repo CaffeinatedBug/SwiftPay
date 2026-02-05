@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 
-const BACKEND_URL = 'http://localhost:3001';
-const WS_URL = 'ws://localhost:8080';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8080';
 
 interface YellowChannel {
   channelId: string;
