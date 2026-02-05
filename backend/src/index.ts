@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { YellowHub } from './yellow/YellowHub';
+import { YellowNetworkHub } from './yellow/YellowNetworkHub';
 import { ethers } from 'ethers';
 
 dotenv.config();
@@ -19,11 +19,8 @@ app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Initialize Yellow Hub
-const yellowHub = new YellowHub(
-  process.env.YELLOW_WS_URL || 'wss://clearnet.yellow.com/ws',
-  process.env.HUB_PRIVATE_KEY!
-);
+// Initialize Yellow Network Hub (Real Nitrolite SDK)
+const yellowHub = new YellowNetworkHub(process.env.HUB_PRIVATE_KEY!);
 
 // WebSocket server for merchant real-time updates
 const wss = new WebSocketServer({ port: Number(WS_PORT) });
@@ -57,7 +54,7 @@ function notifyMerchant(merchantId: string, payment: any) {
 
 // Yellow Hub event handlers
 yellowHub.on('connected', () => {
-  console.log('✅ Yellow Hub connected');
+  console.log('✅ Yellow Network Hub connected (Sepolia Sandbox)');
 });
 
 yellowHub.on('payment_cleared', (payment) => {
@@ -65,8 +62,8 @@ yellowHub.on('payment_cleared', (payment) => {
   notifyMerchant(payment.merchantId, payment);
 });
 
-yellowHub.on('payments_settled', (data) => {
-  console.log('💎 Payments settled:', data);
+yellowHub.on('channel_settled', (data) => {
+  console.log('💎 Channel settled:', data);
   const ws = merchantConnections.get(data.merchantId);
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
@@ -86,33 +83,58 @@ yellowHub.on('error', (error) => {
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
-    yellowHub: yellowHub.getStats(),
+    yellowHub: {
+      connected: yellowHub.isReady(),
+      hubAddress: yellowHub.getHubAddress()
+    },
     timestamp: new Date().toISOString()
   });
 });
 
-// Get Yellow Hub stats
-app.get('/api/stats', (req: Request, res: Response) => {
-  res.json(yellowHub.getStats());
+// Deposit funds to Yellow Network
+app.post('/api/deposit', async (req: Request, res: Response) => {
+  try {
+    const { amount } = req.body; // Amount in USDC (6 decimals)
+
+    if (!amount) {
+      return res.status(400).json({ error: 'amount is required' });
+    }
+
+    const amountBigInt = BigInt(amount);
+    const txHash = await yellowHub.depositFunds(amountBigInt);
+
+    res.json({
+      success: true,
+      txHash,
+      amount: amount.toString()
+    });
+  } catch (error: any) {
+    console.error('Deposit failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Deposit failed'
+    });
+  }
 });
 
 // Open user channel
 app.post('/api/channels/user', async (req: Request, res: Response) => {
   try {
-    const { userId, initialDeposit } = req.body;
+    const { userId, initialBalance } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
+    if (!userId || !initialBalance) {
+      return res.status(400).json({ error: 'userId and initialBalance are required' });
     }
 
-    const channel = await yellowHub.openUserChannel(userId, initialDeposit || '0');
+    const balanceBigInt = BigInt(initialBalance);
+    const channel = await yellowHub.createUserChannel(userId, balanceBigInt);
 
     res.json({
       success: true,
       channel: {
         channelId: channel.channelId,
         userId: channel.userId,
-        balance: channel.balance,
+        balance: channel.balance.toString(),
         status: channel.status
       }
     });
@@ -128,20 +150,20 @@ app.post('/api/channels/user', async (req: Request, res: Response) => {
 // Open merchant channel
 app.post('/api/channels/merchant', async (req: Request, res: Response) => {
   try {
-    const { merchantId, initialDeposit } = req.body;
+    const { merchantId } = req.body;
 
     if (!merchantId) {
       return res.status(400).json({ error: 'merchantId is required' });
     }
 
-    const channel = await yellowHub.openMerchantChannel(merchantId, initialDeposit || '0');
+    const channel = await yellowHub.createMerchantChannel(merchantId);
 
     res.json({
       success: true,
       channel: {
         channelId: channel.channelId,
         userId: channel.userId,
-        balance: channel.balance,
+        balance: channel.balance.toString(),
         status: channel.status
       }
     });
@@ -178,21 +200,23 @@ app.post('/api/payments/clear', async (req: Request, res: Response) => {
 
     console.log(`💳 Processing payment: ${userId} -> ${merchantId}, ${amount} USDC`);
 
+    // Convert amount to bigint (USDC has 6 decimals)
+    const amountBigInt = BigInt(amount);
+
     // Clear payment via Yellow Network (instant, off-chain)
-    const payment = await yellowHub.clearPayment(userId, merchantId, amount, signature);
+    const result = await yellowHub.clearPayment(userId, merchantId, amountBigInt, signature);
 
     res.json({
       success: true,
       payment: {
-        id: payment.id,
-        userId: payment.userId,
-        merchantId: payment.merchantId,
-        amount: payment.amount,
-        status: payment.status,
-        timestamp: payment.timestamp,
-        clearedIn: '< 200ms' // Yellow Network instant clearing
+        userId,
+        merchantId,
+        amount: amount.toString(),
+        timestamp: result.timestamp,
+        userChannelBalance: result.userChannelBalance,
+        merchantChannelBalance: result.merchantChannelBalance
       },
-      message: 'Payment cleared instantly via Yellow Network'
+      message: 'Payment cleared instantly via Yellow Network (<200ms)'
     });
   } catch (error: any) {
     console.error('Payment clearing failed:', error);
@@ -203,19 +227,27 @@ app.post('/api/payments/clear', async (req: Request, res: Response) => {
   }
 });
 
-// Get cleared payments for merchant
-app.get('/api/payments/cleared/:merchantId', (req: Request, res: Response) => {
+// Get user channel info
+app.get('/api/channels/user/:userId', (req: Request, res: Response) => {
   try {
-    const { merchantId } = req.params;
-    const payments = yellowHub.getClearedPayments(merchantId);
-    const total = yellowHub.getTotalCleared(merchantId);
+    const { userId } = req.params;
+    const channel = yellowHub.getUserChannel(userId);
+
+    if (!channel) {
+      return res.status(404).json({
+        success: false,
+        error: 'Channel not found'
+      });
+    }
 
     res.json({
       success: true,
-      merchantId,
-      payments,
-      totalCleared: total,
-      count: payments.length
+      channel: {
+        channelId: channel.channelId,
+        userId: channel.userId,
+        balance: channel.balance.toString(),
+        status: channel.status
+      }
     });
   } catch (error: any) {
     res.status(500).json({
@@ -225,123 +257,93 @@ app.get('/api/payments/cleared/:merchantId', (req: Request, res: Response) => {
   }
 });
 
-// Settle merchant payments (close Yellow channels, prepare for on-chain settlement)
-app.post('/api/settle', async (req: Request, res: Response) => {
+// Get merchant channel info
+app.get('/api/channels/merchant/:merchantId', (req: Request, res: Response) => {
   try {
-    const { merchantId, merchantAddress } = req.body;
+    const { merchantId } = req.params;
+    const channel = yellowHub.getMerchantChannel(merchantId);
 
-    if (!merchantId || !merchantAddress) {
-      return res.status(400).json({
+    if (!channel) {
+      return res.status(404).json({
         success: false,
-        error: 'merchantId and merchantAddress are required'
+        error: 'Channel not found'
       });
     }
 
-    console.log(`💰 Settling payments for merchant: ${merchantId}`);
+    res.json({
+      success: true,
+      channel: {
+        channelId: channel.channelId,
+        userId: channel.userId,
+        balance: channel.balance.toString(),
+        status: channel.status
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
-    // Settle payments via Yellow (closes channels, gets final balances)
-    const settledPayments = await yellowHub.settleMerchantPayments(merchantId);
-    const totalAmount = settledPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+// Settle merchant channel (close Yellow channel, settle on-chain)
+app.post('/api/settle', async (req: Request, res: Response) => {
+  try {
+    const { merchantId } = req.body;
 
-    // TODO: Trigger on-chain settlement to Arc via SwiftPayVault
-    // For now, we return the settlement details
+    if (!merchantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'merchantId is required'
+      });
+    }
+
+    console.log(`💰 Settling channel for merchant: ${merchantId}`);
+
+    // Settle channel on Yellow Network (closes channel, settles on-chain)
+    const txHash = await yellowHub.settleMerchantChannel(merchantId);
 
     res.json({
       success: true,
       merchantId,
-      settledPayments: settledPayments.length,
-      totalAmount: totalAmount.toFixed(2),
+      txHash,
       status: 'settled',
-      message: 'Payments settled via Yellow Network. Ready for on-chain finalization.'
+      message: 'Channel settled on-chain via Yellow Network'
     });
   } catch (error: any) {
     console.error('Settlement failed:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Settlement failed'
+      error: error.message || 'Failed to settle'
     });
   }
 });
 
-// Get user channel balance
-app.get('/api/balance/user/:userId', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const balance = await yellowHub.getUserChannelBalance(userId);
-
-    res.json({
-      success: true,
-      userId,
-      balance
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Get merchant channel balance
-app.get('/api/balance/merchant/:merchantId', async (req: Request, res: Response) => {
-  try {
-    const { merchantId } = req.params;
-    const balance = await yellowHub.getMerchantChannelBalance(merchantId);
-
-    res.json({
-      success: true,
-      merchantId,
-      balance
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Close user channel
-app.post('/api/channels/user/close', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.body;
-    await yellowHub.closeUserChannel(userId);
-
-    res.json({
-      success: true,
-      message: `Channel closed for user ${userId}`
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Initialize and start server
+// Initialize and start server// Initialize and start server
 async function startServer() {
   try {
     console.log('🚀 Starting SwiftPay Hub...');
+    console.log('🔄 Connecting to Yellow Network Sandbox (Sepolia)...');
 
     // Initialize Yellow Hub
-    await yellowHub.initialize();
+    await yellowHub.connect();
 
     // Start HTTP server
     app.listen(PORT, () => {
-      console.log(`✅ HTTP Server running on http://localhost:${PORT}`);
+      console.log(`\n✅ HTTP Server running on http://localhost:${PORT}`);
       console.log(`✅ WebSocket Server running on ws://localhost:${WS_PORT}`);
+      console.log(`✅ Yellow Network Hub: ${yellowHub.getHubAddress()}`);
       console.log('\n📊 API Endpoints:');
       console.log(`   GET  /health`);
-      console.log(`   GET  /api/stats`);
+      console.log(`   POST /api/deposit`);
       console.log(`   POST /api/channels/user`);
       console.log(`   POST /api/channels/merchant`);
+      console.log(`   GET  /api/channels/user/:userId`);
+      console.log(`   GET  /api/channels/merchant/:merchantId`);
       console.log(`   POST /api/payments/clear`);
-      console.log(`   GET  /api/payments/cleared/:merchantId`);
       console.log(`   POST /api/settle`);
-      console.log(`   GET  /api/balance/user/:userId`);
-      console.log(`   GET  /api/balance/merchant/:merchantId`);
-      console.log('\n✨ SwiftPay Hub ready for instant payments via Yellow Network!\n');
+      console.log('\n✨ SwiftPay Hub ready - Real Yellow Network integration active!\n');
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
@@ -352,14 +354,12 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down gracefully...');
-  yellowHub.disconnect();
   wss.close();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   console.log('\n🛑 Shutting down gracefully...');
-  yellowHub.disconnect();
   wss.close();
   process.exit(0);
 });
