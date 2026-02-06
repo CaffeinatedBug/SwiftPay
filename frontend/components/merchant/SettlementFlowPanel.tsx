@@ -61,7 +61,7 @@ export function SettlementFlowPanel({
     { 
       id: "bridge", 
       label: "Bridge", 
-      sublabel: "Yellow Network",
+      sublabel: "Avail Nexus",
       icon: ArrowRightLeft,
       status: currentStep > 2 ? "complete" : currentStep === 2 ? "active" : "pending"
     },
@@ -276,7 +276,7 @@ export function SettlementFlowPanel({
               Route
             </div>
             <div className="mt-1 font-mono text-sm font-medium text-foreground">
-              Yellow Direct
+              Avail Nexus
             </div>
           </div>
           <div>
@@ -318,7 +318,7 @@ export function SettlementFlowPanel({
               {(currentStep >= 2) && (
                 <div className="flex gap-2">
                   <span className="text-primary">[{new Date().toLocaleTimeString()}]</span>
-                  <span>Bridge initiated: {sourceChain} → Arc (Stargate)</span>
+                  <span>Bridge initiated: {sourceChain} → Arc (Avail Nexus)</span>
                 </div>
               )}
               {(currentStep >= 3) && (

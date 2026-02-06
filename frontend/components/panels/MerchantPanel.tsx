@@ -89,17 +89,6 @@ export function MerchantPanel() {
           </DialogContent>
         </Dialog>
       </div>
-              <span>Admin Panel</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto bg-white">
-            <DialogHeader>
-              <DialogTitle className="font-semibold">Admin Panel</DialogTitle>
-            </DialogHeader>
-            <AdminPanel embedded />
-          </DialogContent>
-        </Dialog>
-      </div>
 
       {/* Balance Hero */}
       <div className="mb-6">

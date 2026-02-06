@@ -15,6 +15,7 @@ import { useWallet } from "@/lib/web3/hooks";
 import { useToast } from "@/hooks/use-toast";
 import { useYellowNetwork } from "@/hooks/useYellowNetwork";
 import { ENSMerchantInput } from "@/components/merchant/ENSMerchantInput";
+import { AvailBridgePanel } from "@/components/avail/AvailBridgePanel";
 
 // Chain configuration with colors
 const chainConfig: Record<string, { color: string; logo: string }> = {
@@ -62,6 +63,7 @@ export function UserPanel() {
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showENSSearch, setShowENSSearch] = useState(false);
+  const [showBridge, setShowBridge] = useState(false);
   const [scannedPayment, setScannedPayment] = useState<ScannedPaymentData | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<MerchantInfo | null>(null);
   const { toast } = useToast();
@@ -158,7 +160,9 @@ export function UserPanel() {
         title: "Payment Failed",
         description: error.message || "Failed to process payment",
         variant: "destructive"
-    
+      });
+    }
+  };
 
   // Handle ENS merchant selection
   const handleMerchantSelected = (merchantInfo: MerchantInfo) => {
@@ -169,8 +173,6 @@ export function UserPanel() {
       title: "✅ Merchant Found via ENS",
       description: `${merchantInfo.ensName || merchantInfo.address} - Settlement: ${merchantInfo.chain?.toUpperCase() || 'SEPOLIA'}`,
     });
-  };  });
-    }
   };
 
   return (
@@ -299,7 +301,15 @@ export function UserPanel() {
               )}
             </div>
           ) : (
-          ENS Merchant Search */}
+            <div className="flex flex-col items-center justify-center py-8">
+              <p className="mb-4 text-sm text-muted-foreground">Connect your wallet to start paying</p>
+              <WalletButton />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ENS Merchant Search */}
       {wallet.isConnected && selectedAsset && !selectedMerchant && (
         <Card className="status-card mb-6">
           <CardHeader className="pb-3">
@@ -410,7 +420,10 @@ export function UserPanel() {
                   ${amount}
                 </Button>
               ))}
-            </divv className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary/10 pulse-ready">
+            </div>
+
+            {/* Scan QR to Pay */}
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary/10 pulse-ready">
               <QrCode className="h-10 w-10 text-primary" />
             </div>
             <Button
@@ -446,6 +459,22 @@ export function UserPanel() {
         } : null}
         onConfirm={handlePaymentConfirm}
       />
+
+      {/* Cross-Chain Top-Up via Avail Nexus */}
+      {wallet.isConnected && (
+        <div className="mb-6">
+          <Button
+            variant={showBridge ? "default" : "outline"}
+            size="sm"
+            className="mb-3 w-full font-mono text-xs"
+            onClick={() => setShowBridge(!showBridge)}
+          >
+            <ArrowUpRight className="mr-2 h-4 w-4" />
+            {showBridge ? 'Hide Bridge' : '⚡ Cross-Chain Top-Up (Avail Nexus)'}
+          </Button>
+          {showBridge && <AvailBridgePanel />}
+        </div>
+      )}
 
       {/* Recent Transactions */}
       {wallet.isConnected && (

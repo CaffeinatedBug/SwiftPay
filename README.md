@@ -44,10 +44,13 @@ SwiftPay combines multiple blockchain technologies to solve real-world payment c
 - Event-driven architecture
 
 **Cross-Chain Bridge**
-- Avail Nexus integration
-- USDC liquidity routing
-- Automated chain selection
-- Gas optimization
+- Avail Nexus SDK integration (testnet)
+- Unified cross-chain balance aggregation
+- Bridge, transfer, and simulate operations
+- USDC/USDT/ETH liquidity routing across Ethereum, Arbitrum, Base, Polygon, Optimism
+- Live bridge step tracking with event hooks
+- Quick top-up shortcuts for fast onboarding
+- Gas optimization via automated source chain selection
 
 ## Features
 
@@ -58,6 +61,7 @@ SwiftPay combines multiple blockchain technologies to solve real-world payment c
 - **ENS Avatars**: Visual merchant profiles and branding
 - **Smart Limits**: Min/max payment enforcement at protocol level
 - **Fee Transparency**: Merchant fees stored and displayed on-chain
+- **Cross-Chain Bridging**: Bridge tokens across 6+ chains via Avail Nexus with live step tracking
 
 ## Tech Stack
 
@@ -65,6 +69,7 @@ SwiftPay combines multiple blockchain technologies to solve real-world payment c
 - **Framework**: Next.js 16 with Turbopack
 - **Language**: TypeScript + React 19
 - **Web3**: wagmi, viem, RainbowKit
+- **Cross-Chain**: Avail Nexus SDK (`@avail-project/nexus-core`)
 - **UI**: Tailwind CSS, shadcn/ui
 - **ENS**: Custom resolution hooks
 
