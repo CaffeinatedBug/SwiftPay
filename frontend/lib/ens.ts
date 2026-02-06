@@ -10,36 +10,32 @@
  */
 
 import { createPublicClient, http } from 'viem';
-import { normalize } from 'viem/ens';
 import { mainnet, sepolia } from 'viem/chains';
+import { normalize } from 'viem/ens';
+import { ENS_TEXT_KEYS } from './constants';
 
-const ENS_TEXT_KEYS = {
-  ENDPOINT: 'swiftpay.endpoint',
-  VAULT: 'swiftpay.vault',
-  CHAIN: 'swiftpay.chain',
-  SCHEDULE: 'swiftpay.schedule',
-} as const;
-
+// SwiftPay ENS Record interface
 export interface SwiftPayENSRecord {
   ensName: string;
   endpoint: string | null;
   vault: string | null;
-  chain: string | null;
-  schedule: string | null;
+  chain: string;
+  schedule: string;
   resolverAddress: string | null;
 }
 
-// Mainnet client for production ENS lookups
+// Create clients for mainnet and sepolia
 const mainnetClient = createPublicClient({
   chain: mainnet,
   transport: http(process.env.NEXT_PUBLIC_ENS_RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/demo'),
 });
 
-// Sepolia client for testnet ENS
 const sepoliaClient = createPublicClient({
   chain: sepolia,
   transport: http(process.env.NEXT_PUBLIC_ENS_SEPOLIA_RPC || 'https://eth-sepolia.g.alchemy.com/v2/demo'),
 });
+
+const publicClient = mainnetClient;
 
 /**
  * Resolve SwiftPay merchant information from ENS name
@@ -66,10 +62,10 @@ export async function resolveSwiftPayMerchant(
 
     // Fetch all SwiftPay text records in parallel
     const [endpoint, vault, chain, schedule] = await Promise.all([
-      client.getEnsText({ name: normalizedName, key: ENS_TEXT_KEYS.ENDPOINT }),
-      client.getEnsText({ name: normalizedName, key: ENS_TEXT_KEYS.VAULT }),
-      client.getEnsText({ name: normalizedName, key: ENS_TEXT_KEYS.CHAIN }),
-      client.getEnsText({ name: normalizedName, key: ENS_TEXT_KEYS.SCHEDULE }),
+      client.getEnsText({ name: normalizedName, key: 'swiftpay.endpoint' }),
+      client.getEnsText({ name: normalizedName, key: 'swiftpay.vault' }),
+      client.getEnsText({ name: normalizedName, key: ENS_TEXT_KEYS.SETTLEMENT_CHAIN }),
+      client.getEnsText({ name: normalizedName, key: ENS_TEXT_KEYS.SETTLEMENT_SCHEDULE }),
     ]);
 
     // Validate that this is a SwiftPay merchant (must have endpoint)
@@ -180,4 +176,81 @@ export function formatENSName(ensName: string, maxLength: number = 20): string {
 export function isENSName(input: string): boolean {
   // Basic ENS validation: must end with .eth or other TLD, no spaces
   return /^[a-z0-9-]+\.[a-z]+$/i.test(input);
+}
+
+/**
+ * Resolve ENS name to address
+ * @param name ENS name
+ * @returns Ethereum address or null
+ */
+export async function resolveENSName(name: string): Promise<string | null> {
+  try {
+    const address = await publicClient.getEnsAddress({
+      name: normalize(name),
+    });
+    return address;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get ENS avatar
+ * @param name ENS name
+ * @returns ENS avatar or null
+ */
+export async function getENSAvatar(name: string): Promise<string | null> {
+  try {
+    const avatar = await publicClient.getEnsAvatar({
+      name: normalize(name),
+    });
+    return avatar;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get ENS text record
+ * @param name ENS name
+ * @param key Text record key
+ * @returns Text record value or null
+ */
+export async function getENSTextRecord(name: string, key: string): Promise<string | null> {
+  try {
+    const value = await publicClient.getEnsText({
+      name: normalize(name),
+      key,
+    });
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get merchant profile
+ * @param ensName ENS name
+ * @returns Merchant profile object
+ */
+export async function getMerchantProfile(ensName: string) {
+  const [address, avatar, ...textRecords] = await Promise.allSettled([
+    resolveENSName(ensName),
+    getENSAvatar(ensName),
+    ...Object.values(ENS_TEXT_KEYS).map((key) => getENSTextRecord(ensName, key)),
+  ]);
+
+  const keys = Object.keys(ENS_TEXT_KEYS);
+  const profile: Record<string, string | null> = {};
+
+  textRecords.forEach((result, i) => {
+    profile[keys[i]] = result.status === 'fulfilled' ? result.value : null;
+  });
+
+  return {
+    ensName,
+    address: address.status === 'fulfilled' ? address.value : null,
+    avatar: avatar.status === 'fulfilled' ? avatar.value : null,
+    ...profile,
+  };
 }

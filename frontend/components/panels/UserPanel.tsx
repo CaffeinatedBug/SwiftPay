@@ -139,29 +139,21 @@ export function UserPanel() {
   };
 
   const handlePaymentConfirm = async () => {
-    if (!scannedPayment) return;
+    if (!scannedPayment) throw new Error('No payment data');
     
-    try {
-      // Clear payment via Yellow Network (<200ms instant)
-      await yellow.clearPayment(
-        scannedPayment.merchantAddress,
-        scannedPayment.amount.toString()
-      );
-      
-      toast({
-        title: "⚡ Payment Cleared Instantly",
-        description: `Paid $${scannedPayment.amount} to ${scannedPayment.merchantName} via Yellow Network`,
-      });
-      
-      setScannedPayment(null);
-      setShowPaymentModal(false);
-    } catch (error: any) {
-      toast({
-        title: "Payment Failed",
-        description: error.message || "Failed to process payment",
-        variant: "destructive"
-      });
-    }
+    // Clear payment via Yellow Network (<200ms instant)
+    await yellow.clearPayment(
+      scannedPayment.merchantAddress,
+      scannedPayment.amount.toString()
+    );
+    
+    toast({
+      title: "⚡ Payment Cleared Instantly",
+      description: `Paid $${scannedPayment.amount} to ${scannedPayment.merchantName} via Yellow Network`,
+    });
+    
+    // Clean up after modal auto-closes
+    setScannedPayment(null);
   };
 
   // Handle ENS merchant selection
@@ -183,11 +175,11 @@ export function UserPanel() {
       </div>
 
       {/* Wallet Connection / Balance Card */}
-      <Card className="status-card mb-6 overflow-hidden">
+      <Card className="glass-card mb-6 overflow-hidden border-yellow-400/20">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between font-mono text-sm">
+          <CardTitle className="flex items-center justify-between font-mono text-sm text-white">
             <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-primary" />
+              <Wallet className="h-4 w-4 text-yellow-400" />
               WALLET_STATUS
             </div>
             {wallet.isConnected && wallet.address && (
@@ -204,9 +196,9 @@ export function UserPanel() {
           {wallet.isConnected ? (
             <div className="space-y-6">
               {/* Primary Balance Display */}
-              <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-6 glow-yellow">
+              <div className="rounded-xl border border-yellow-400/30 bg-gradient-to-br from-yellow-400/5 to-transparent p-6 glow-yellow">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <p className="text-xs uppercase tracking-wider text-gray-400">
                     Available Balance
                   </p>
                   {wallet.nativeBalance.isLoading && (

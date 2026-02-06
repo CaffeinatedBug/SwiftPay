@@ -62,28 +62,28 @@ export function MerchantPanel() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-auto p-6">
+    <div className="flex h-full flex-col overflow-auto p-6" style={{ backgroundColor: 'rgba(31, 31, 31, 0.3)' }}>
       {/* Admin Button - Top Right */}
       <div className="mb-6 flex items-center justify-between">
         {/* Merchant ENS Identity */}
         {ensName && (
-          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-            <span className="text-xs text-muted-foreground">Identity:</span>
-            <span className="font-mono text-sm font-semibold text-primary">{ensName}</span>
-            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-primary">ENS Verified</span>
+          <div className="glass flex items-center gap-2 rounded-lg border border-yellow-400/30 px-3 py-2">
+            <span className="text-xs text-gray-400">Identity:</span>
+            <span className="font-mono text-sm font-semibold text-yellow-400">{ensName}</span>
+            <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-xs text-yellow-400">ENS Verified</span>
           </div>
         )}
         
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2 rounded-full border-gray-300 hover:border-gray-400 hover:bg-gray-50">
+            <Button variant="outline" size="sm" className="gap-2 rounded-full border-yellow-400/30 hover:border-yellow-400 hover:bg-yellow-400/10 text-white">
               <Settings className="h-4 w-4" />
               <span>Admin Panel</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto bg-white">
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto border-yellow-400/20" style={{ backgroundColor: '#1f1f1f' }}>
             <DialogHeader>
-              <DialogTitle className="font-semibold">Admin Panel</DialogTitle>
+              <DialogTitle className="font-semibold text-white">Admin Panel</DialogTitle>
             </DialogHeader>
             <AdminPanel embedded />
           </DialogContent>
@@ -113,19 +113,19 @@ export function MerchantPanel() {
           <DialogTrigger asChild>
             <div className="relative cursor-pointer">
               {/* Glow effect behind button */}
-              <div className="absolute -inset-1 rounded-xl bg-primary/20 blur-xl" />
+              <div className="absolute -inset-1 rounded-xl bg-yellow-400/20 blur-xl" />
               <Button
                 size="lg"
-                className="relative w-full gap-3 bg-primary py-6 font-mono text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30"
+                className="relative w-full gap-3 bg-yellow-400 py-6 font-mono text-base font-bold text-black shadow-lg shadow-yellow-400/25 transition-all duration-300 hover:bg-yellow-300 hover:shadow-xl hover:shadow-yellow-400/30 glow-btn"
               >
                 <span>Settle Now</span>
-                <span className="rounded-full bg-primary-foreground/20 px-3 py-1">
+                <span className="rounded-full bg-black/20 px-3 py-1">
                   ${pendingBalance} → Arc
                 </span>
               </Button>
             </div>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] max-w-3xl overflow-auto border-primary/30 bg-background p-0">
+          <DialogContent className="max-h-[90vh] max-w-3xl overflow-auto border-yellow-400/30 p-0" style={{ backgroundColor: '#1f1f1f' }}>
             <SettlementFlowPanel 
               amount={pendingBalance}
               sourceChain="arbitrum"

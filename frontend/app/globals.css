@@ -105,11 +105,12 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-yellow-400/20;
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply text-white;
+    background: #1f1f1f;
   }
 
   /* Terminal-style headers */
@@ -188,22 +189,22 @@
 
   /* Status card with yellow left accent */
   .status-card {
-    @apply relative bg-card border border-border rounded-lg overflow-hidden;
+    @apply relative bg-gray-800 border border-gray-700 rounded-lg overflow-hidden;
   }
 
   .status-card::before {
     content: '';
-    @apply absolute left-0 top-0 bottom-0 w-1 bg-primary;
+    @apply absolute left-0 top-0 bottom-0 w-1 bg-yellow-400;
   }
 
   /* Terminal-style header */
   .terminal-header {
-    @apply font-mono text-sm text-muted-foreground;
+    @apply font-mono text-sm text-gray-400;
   }
 
   .terminal-header::before {
     content: '> ';
-    @apply text-primary;
+    @apply text-yellow-400;
   }
 
   /* Pulse animation for ready states */
@@ -567,4 +568,245 @@
     left: 100%;
     opacity: 0;
   }
+}
+
+/* ============================================
+   GLASSMORPHISM EFFECTS
+   ============================================ */
+
+.glass {
+  background: rgba(31, 31, 31, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(250, 204, 21, 0.15);
+}
+
+.glass-subtle {
+  background: rgba(31, 31, 31, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(250, 204, 21, 0.1);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(31, 31, 31, 0.7) 0%, rgba(31, 31, 31, 0.5) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(250, 204, 21, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(250, 204, 21, 0.1);
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgba(31, 31, 31, 0.9) 0%, rgba(31, 31, 31, 0.7) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(250, 204, 21, 0.12);
+}
+
+/* ============================================
+   PULSE ANIMATIONS
+   ============================================ */
+
+.pulse-yellow {
+  animation: pulse-yellow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-yellow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.5);
+  }
+  50% {
+    opacity: 0.9;
+    box-shadow: 0 0 20px 10px rgba(250, 204, 21, 0);
+  }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(250, 204, 21, 0);
+  }
+}
+
+.pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 15px rgba(250, 204, 21, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+  }
+}
+
+.breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* ============================================
+   GOOEY CURSOR EFFECT (Minimalistic)
+   ============================================ */
+
+.gooey-cursor {
+  cursor: none;
+}
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  background: #FACC15;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: difference;
+  transition: transform 0.1s ease-out;
+}
+
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(250, 204, 21, 0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transition: all 0.15s ease-out;
+  transform: translate(-50%, -50%);
+}
+
+.cursor-ring.hovering {
+  width: 48px;
+  height: 48px;
+  border-color: rgba(250, 204, 21, 0.8);
+  background: rgba(250, 204, 21, 0.1);
+}
+
+/* ============================================
+   ADDITIONAL VISUAL EFFECTS
+   ============================================ */
+
+/* Gradient text */
+.text-gradient-yellow {
+  background: linear-gradient(135deg, #FACC15 0%, #FDE047 50%, #EAB308 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Shimmer effect */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(250, 204, 21, 0.1) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Border glow */
+.border-glow {
+  position: relative;
+}
+
+.border-glow::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, #FACC15, transparent, #FACC15, transparent);
+  border-radius: inherit;
+  z-index: -1;
+  animation: border-rotate 3s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes border-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Floating animation */
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Glow button hover */
+.glow-btn {
+  transition: all 0.3s ease;
+}
+
+.glow-btn:hover {
+  box-shadow: 
+    0 0 20px rgba(250, 204, 21, 0.4),
+    0 0 40px rgba(250, 204, 21, 0.2),
+    0 0 60px rgba(250, 204, 21, 0.1);
+  transform: translateY(-2px);
 }

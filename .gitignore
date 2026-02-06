@@ -1,86 +1,48 @@
 # Dependencies
 node_modules/
-*/node_modules/
 .pnp
 .pnp.js
-package-lock.json
-*/package-lock.json
-yarn.lock
-*/yarn.lock
-bun.lockb
-*/bun.lockb
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
 
-# Testing
-coverage/
-*/coverage/
-coverage.json
-.nyc_output/
-
-# Next.js
+# Build outputs
 .next/
-*/.next/
 out/
-*/out/
-build/
-*/build/
 dist/
-*/dist/
+build/
+*.tsbuildinfo
 
-# Production
-*.log
-*.log.*
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
 
-# Environment files - SENSITIVE DATA
+# Environment variables
 .env
-.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-*/.env
-*/.env.*
-*/.env.local
-*/.env.development.local
-*/.env.test.local
-*/.env.production.local
+.env.*.local
+*.env
 
-# Keep example env files
-!.env.example
-!*/.env.example
-
-# Private keys and secrets
-*.key
-*.pem
-*.p12
-**/private_keys/
-secrets/
-config/secrets.json
-*.wallet
-*.keystore
-mnemonic.txt
-seed.txt
-wallet.json
-
-# Vercel
-.vercel
-*/.vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
-*/next-env.d.ts
-
-# IDE and editor files
+# IDE / Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
 .DS_Store
 .DS_Store?
 ._*
@@ -88,35 +50,39 @@ next-env.d.ts
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Hardhat - Build artifacts and sensitive data
-cache/
-artifacts/
-typechain-types/
-.openzeppelin/
-deployments/local/
-contracts/cache/
-contracts/artifacts/
-contracts/typechain-types/
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Cache and temporary files
-.cache/
-*/.cache/
+# Testing
+coverage/
+.nyc_output
+*.lcov
+
+# Temporary files
 *.tmp
 *.temp
-*/*.tmp
-*/*.temp
-.turbo
+.cache/
+.parcel-cache/
 
-# Runtime data
-pids/
+# Next.js specific
+.vercel
+.next/
+next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
+.tsbuildinfo
+
+# Misc
 *.pid
 *.seed
 *.pid.lock
-
-# Logs
-logs/
-*/logs/
-
-# Old Vite frontend (migrated to Next.js in /frontend)
-instant-rail/
+.eslintcache
+.stylelintcache

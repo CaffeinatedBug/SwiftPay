@@ -1,36 +1,27 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: __dirname,
-  },
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'cryptologos.cc',
-        port: '',
-        pathname: '/logos/**',
+        hostname: 'euc.li',
       },
       {
         protocol: 'https',
-        hostname: 'assets.coingecko.com',
-        port: '',
-        pathname: '/coins/**',
+        hostname: 'metadata.ens.domains',
       },
       {
         protocol: 'https',
-        hostname: 'raw.githubusercontent.com',
-        port: '',
-        pathname: '/**',
+        hostname: 'ipfs.io',
       },
-      {
-        protocol: 'https',
-        hostname: 'ethereum-optimism.github.io',
-        port: '',
-        pathname: '/**',
-      }
     ],
+  },
+  // Use webpack instead of turbopack
+  webpack: (config) => {
+    config.resolve.fallback = { fs: false, net: false, tls: false };
+    return config;
   },
 };
 

@@ -1,12 +1,13 @@
 {
-  "name": "frontend",
+  "name": "swiftpay-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint"
   },
   "dependencies": {
     "@avail-project/nexus-core": "^1.0.0",
@@ -40,10 +41,10 @@
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@rainbow-me/rainbowkit": "^2.2.10",
-    "@tanstack/react-query": "^5.83.0",
+    "@tanstack/react-query": "^5.56.0",
     "@types/qrcode": "^1.5.6",
-    "@wagmi/connectors": "^7.1.6",
-    "@wagmi/core": "^3.3.2",
+    "@wagmi/connectors": "^5.1.0",
+    "@wagmi/core": "^2.13.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -65,10 +66,12 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-    "viem": "^2.45.1",
-    "wagmi": "^3.4.2",
+    "viem": "^2.21.0",
+    "wagmi": "^2.14.0",
     "ws": "^8.19.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@ensdomains/ensjs": "^4.0.0",
+    "qrcode.react": "^4.0.0"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",

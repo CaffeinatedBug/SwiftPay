@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Shield, Zap, Check, Loader2 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ const chainColors: Record<string, string> = {
   Optimism: "#FF0420",
 };
 
-type PaymentState = "confirming" | "signing" | "processing" | "success";
+type PaymentState = "confirming" | "signing" | "processing" | "success" | "error";
 
 export function PaymentConfirmationModal({ 
   open, 
@@ -47,33 +47,48 @@ export function PaymentConfirmationModal({
 }: PaymentConfirmationModalProps) {
   const [state, setState] = useState<PaymentState>("confirming");
   const [countdown, setCountdown] = useState(3);
+  const isPayingRef = useRef(false);
 
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
       setState("confirming");
       setCountdown(3);
+      isPayingRef.current = false;
     }
   }, [open]);
 
-  // Countdown after success
+  // Countdown after success - just for auto-close, no callbacks
   useEffect(() => {
     if (state === "success" && countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else if (state === "success" && countdown === 0) {
       onOpenChange(false);
-      onConfirm();
     }
-  }, [state, countdown, onOpenChange, onConfirm]);
+  }, [state, countdown, onOpenChange]);
 
   const handlePay = async () => {
+    // Prevent double-clicks / re-triggers
+    if (isPayingRef.current || state !== "confirming") return;
+    isPayingRef.current = true;
+    
     setState("signing");
-    // Real payment via Yellow Network will be handled by parent component
-    // This just manages UI states
-    setState("processing");
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setState("success");
+    
+    try {
+      // Call the actual payment function (triggers MetaMask)
+      await onConfirm();
+      setState("success");
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      setState("error");
+      isPayingRef.current = false;
+    }
+  };
+
+  const handleRetry = () => {
+    setState("confirming");
+    isPayingRef.current = false;
   };
 
   if (!payment) return null;
@@ -210,14 +225,21 @@ export function PaymentConfirmationModal({
                   <span>Secured by Yellow Network State Channels</span>
                 </div>
 
+                {/* Error State */}
+                {state === "error" && (
+                  <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-center">
+                    <p className="text-sm text-red-400">Payment failed or was cancelled</p>
+                  </div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="space-y-3">
                   <Button
-                    onClick={handlePay}
-                    disabled={state !== "confirming"}
+                    onClick={state === "error" ? handleRetry : handlePay}
+                    disabled={state === "signing"}
                     className={cn(
                       "relative w-full py-6 font-mono text-lg font-bold transition-all",
-                      state === "confirming" 
+                      (state === "confirming" || state === "error")
                         ? "glow-yellow-intense hover:scale-[1.02]" 
                         : "opacity-90"
                     )}
@@ -231,18 +253,18 @@ export function PaymentConfirmationModal({
                     {state === "signing" && (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Waiting for Signature...
+                        Confirm in Wallet...
                       </>
                     )}
-                    {state === "processing" && (
+                    {state === "error" && (
                       <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Clearing via Yellow...
+                        <Zap className="mr-2 h-5 w-5" />
+                        Try Again
                       </>
                     )}
                     
                     {/* Animated border */}
-                    {state === "confirming" && (
+                    {(state === "confirming" || state === "error") && (
                       <span className="absolute inset-0 rounded-md animate-pulse-border" />
                     )}
                   </Button>
@@ -250,7 +272,7 @@ export function PaymentConfirmationModal({
                   <Button
                     variant="ghost"
                     onClick={() => onOpenChange(false)}
-                    disabled={state !== "confirming"}
+                    disabled={state === "signing"}
                     className="w-full font-mono text-muted-foreground hover:text-foreground"
                   >
                     Cancel

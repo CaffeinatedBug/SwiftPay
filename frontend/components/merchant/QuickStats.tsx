@@ -38,15 +38,15 @@ export function QuickStats({
   }, []);
 
   const getChannelHealthColor = (count: number) => {
-    if (count >= 3) return "text-success";
-    if (count === 2) return "text-yellow-500";
-    return "text-destructive";
+    if (count >= 3) return "text-green-400";
+    if (count === 2) return "text-yellow-400";
+    return "text-red-400";
   };
 
   const getProcessingTimeColor = (time: number) => {
-    if (time <= 1.0) return "text-success";
-    if (time <= 2.0) return "text-yellow-500";
-    return "text-destructive";
+    if (time <= 1.0) return "text-green-400";
+    if (time <= 2.0) return "text-yellow-400";
+    return "text-red-400";
   };
 
   const stats = [
@@ -55,7 +55,7 @@ export function QuickStats({
       value: realTimeData.paymentsCount.toString(),
       icon: Zap,
       trend: "+8 this hour",
-      color: "text-primary"
+      color: "text-yellow-400"
     },
     {
       label: "Avg. Processing",
@@ -76,7 +76,7 @@ export function QuickStats({
       value: `$${realTimeData.revenue.toFixed(0)}`,
       icon: TrendingUp,
       trend: "+12.5%",
-      color: "text-success"
+      color: "text-green-400"
     }
   ];
 
@@ -85,14 +85,14 @@ export function QuickStats({
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="group relative overflow-hidden rounded-lg border border-border/50 bg-secondary/30 p-4 transition-all duration-300 hover:border-primary/30 hover:bg-secondary/50 hover:scale-[1.02]"
+          className="glass group relative overflow-hidden rounded-lg border border-yellow-400/20 p-4 transition-all duration-300 hover:border-yellow-400/40 hover:scale-[1.02]"
         >
           {/* Subtle glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           
           <div className="relative flex items-start justify-between">
             <div className="flex-1">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-gray-500">
                 {stat.label}
               </p>
               <div className="mt-1 flex items-baseline gap-2">
@@ -103,20 +103,20 @@ export function QuickStats({
               <div className="mt-2">
                 <Badge 
                   variant="outline" 
-                  className="text-xs border-border/30 bg-background/50"
+                  className="text-xs border-yellow-400/20 bg-black/50 text-gray-400"
                 >
                   {stat.trend}
                 </Badge>
               </div>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/5 ring-1 ring-primary/10 transition-all group-hover:bg-primary/10 group-hover:ring-primary/20">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20 transition-all group-hover:bg-yellow-400/20 group-hover:ring-yellow-400/30">
               <stat.icon className={`h-4 w-4 ${stat.color}`} />
             </div>
           </div>
           
           {/* Real-time pulse indicator */}
           <div className="absolute bottom-2 right-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-pulse" />
+            <div className="h-1.5 w-1.5 rounded-full bg-yellow-400/60 pulse-dot" />
           </div>
         </div>
       ))}

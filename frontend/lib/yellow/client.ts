@@ -1,13 +1,9 @@
 'use client'
 
-// Extend Window interface for ethereum
+// Extend Window interface for ethereum - using any to avoid conflicts with other libraries
 declare global {
   interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<any>;
-      on?: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener?: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
+    ethereum?: any;
   }
 }
 
