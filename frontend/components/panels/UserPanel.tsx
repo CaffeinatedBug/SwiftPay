@@ -452,8 +452,8 @@ export function UserPanel() {
         onConfirm={handlePaymentConfirm}
       />
 
-      {/* Cross-Chain Top-Up via Avail Nexus */}
-      {wallet.isConnected && (
+      {/* Cross-Chain Top-Up via Avail Nexus - Hidden (auto-handled by backend during settlement) */}
+      {false && wallet.isConnected && (
         <div className="mb-6">
           <Button
             variant={showBridge ? "default" : "outline"}

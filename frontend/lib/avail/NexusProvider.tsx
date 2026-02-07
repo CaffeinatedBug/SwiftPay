@@ -96,40 +96,64 @@ export function NexusProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function init() {
-      if (!isConnected || !connector) return;
+      if (!isConnected || !connector) {
+        console.log('[Nexus] Waiting for wallet connection...', { isConnected, hasConnector: !!connector });
+        return;
+      }
 
       // Skip if already initialised (avoids double-init on HMR)
       if (isNexusInitialized()) {
+        console.log('[Nexus] Already initialized');
         setNexusReady(true);
         return;
       }
 
       // Don't retry failed init within the same render cycle
-      if (initAttempted.current) return;
+      if (initAttempted.current) {
+        console.log('[Nexus] Init already attempted this cycle');
+        return;
+      }
       initAttempted.current = true;
 
+      console.log('[Nexus] Starting initialization...');
       setLoading(true);
       setError(null);
 
       try {
+        console.log('[Nexus] Getting provider from connector...');
         const provider = await connector.getProvider() as EthereumProvider;
+        
+        if (!provider) {
+          throw new Error('No EIP-1193 provider available from connector');
+        }
+        
+        console.log('[Nexus] Provider obtained, initializing SDK...');
         if (cancelled) return;
 
         await initializeNexus(provider);
+        console.log('[Nexus] SDK initialized successfully');
         if (cancelled) return;
 
         setNexusReady(true);
 
         // Fetch balances in background after init
         try {
+          console.log('[Nexus] Fetching balances...');
           const balances = await getUnifiedBalances();
+          console.log('[Nexus] Balances fetched:', balances);
           if (!cancelled) setBridgeBalances(balances as UserAsset[]);
-        } catch {
+        } catch (balErr: any) {
+          console.warn('[Nexus] Balance fetch failed (non-critical):', balErr);
           // Non-critical: balances can be fetched later
         }
       } catch (e: any) {
         if (!cancelled) {
           console.error('[Nexus] init failed:', e);
+          console.error('[Nexus] Error details:', {
+            message: e?.message,
+            stack: e?.stack,
+            connector: connector?.name,
+          });
           setError(e?.message ?? 'Nexus initialisation failed');
         }
       } finally {
@@ -146,11 +170,15 @@ export function NexusProvider({ children }: { children: ReactNode }) {
 
   // Cleanup when wallet disconnects
   useEffect(() => {
-    if (!isConnected && nexusReady) {
-      deinitializeNexus().catch(console.error);
-      setNexusReady(false);
-      setBridgeBalances([]);
+    if (!isConnected) {
+      if (nexusReady) {
+        console.log('[Nexus] Wallet disconnected, cleaning up...');
+        deinitializeNexus().catch(console.error);
+        setNexusReady(false);
+        setBridgeBalances([]);
+      }
       initAttempted.current = false;
+      setError(null);
     }
   }, [isConnected, nexusReady]);
 

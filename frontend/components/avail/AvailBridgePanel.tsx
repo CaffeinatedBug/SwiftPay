@@ -119,10 +119,21 @@ export function AvailBridgePanel() {
   if (initError) {
     return (
       <Card className="status-card border-destructive/50">
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <AlertTriangle className="mb-3 h-8 w-8 text-destructive" />
-          <p className="mb-1 font-mono text-sm text-destructive">Nexus Init Error</p>
-          <p className="text-xs text-muted-foreground">{initError}</p>
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <div className="text-center">
+            <p className="mb-1 font-mono text-sm text-destructive">Nexus Init Error</p>
+            <p className="text-xs text-muted-foreground">{initError}</p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.location.reload()}
+            className="gap-2"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry Connection
+          </Button>
         </CardContent>
       </Card>
     );
@@ -131,11 +142,16 @@ export function AvailBridgePanel() {
   if (!nexusReady) {
     return (
       <Card className="status-card">
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <ArrowRightLeft className="mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="font-mono text-sm text-muted-foreground">
-            Connect wallet to enable cross-chain bridge
-          </p>
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
+          <ArrowRightLeft className="h-8 w-8 text-muted-foreground" />
+          <div className="text-center">
+            <p className="font-mono text-sm text-muted-foreground mb-2">
+              Connect wallet to enable cross-chain bridge
+            </p>
+            <p className="text-xs text-muted-foreground/60">
+              Please ensure your wallet is connected and try refreshing
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
