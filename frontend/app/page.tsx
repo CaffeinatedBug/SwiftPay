@@ -6,7 +6,7 @@ import { GlowCursor } from "@/components/ui/GlowCursor";
 
 export default function Home() {
   return (
-    <div className="gooey-cursor flex h-screen w-full overflow-hidden cyber-grid-animated" style={{ backgroundColor: '#1f1f1f' }}>
+    <div className="flex h-screen w-full overflow-hidden cyber-grid-animated" style={{ backgroundColor: '#1f1f1f' }}>
       <GlowCursor />
       
       {/* Left Side - USER APP (50%) */}
@@ -28,8 +28,10 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto scrollbar-thin bg-black/50">
-          <UserPanel />
+        <div className="relative flex-1 min-h-0 bg-black/50">
+          <div className="absolute inset-0 overflow-y-auto scrollbar-thin">
+            <UserPanel />
+          </div>
         </div>
       </div>
 
@@ -52,8 +54,10 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto scrollbar-thin bg-black/50">
-          <MerchantPanel />
+        <div className="relative flex-1 min-h-0 bg-black/50">
+          <div className="absolute inset-0 overflow-y-auto scrollbar-thin">
+            <MerchantPanel />
+          </div>
         </div>
       </div>
     </div>

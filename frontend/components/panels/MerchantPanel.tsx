@@ -62,7 +62,7 @@ export function MerchantPanel() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-auto p-6" style={{ backgroundColor: 'rgba(31, 31, 31, 0.3)' }}>
+    <div className="relative p-6" style={{ backgroundColor: 'rgba(31, 31, 31, 0.3)' }}>
       {/* Admin Button - Top Right */}
       <div className="mb-6 flex items-center justify-between">
         {/* Merchant ENS Identity */}

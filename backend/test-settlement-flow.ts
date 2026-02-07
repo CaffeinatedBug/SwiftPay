@@ -65,27 +65,35 @@ async function main() {
     return response.data;
   });
 
-  // Step 3: Create User Channel
+  // Step 3: Create User Channel (using test wallet address)
+  const { ethers } = await import('ethers');
+  const testUserWallet = new ethers.Wallet('0x' + '01'.repeat(32));
+  const testUserId = testUserWallet.address;
+  
   await testStep('Create User Channel', async () => {
     const response = await axios.post(`${API_BASE}/api/channels/user`, {
-      userId: USER_ID,
+      userId: testUserId,
       initialBalance: '100000000', // 100 USDC
     });
     console.log('   Channel ID:', response.data.channel.channelId);
     console.log('   Balance:', response.data.channel.balance);
+    console.log('   User Address:', testUserId);
     return response.data;
   });
 
   // Step 4: Clear Payment
   await testStep('Clear Payment', async () => {
-    // Note: In real scenario, you'd sign this with user's wallet
-    const message = `Payment from ${USER_ID} to ${MERCHANT_ID} for 10 USDC`;
-    const signature = '0x' + '00'.repeat(65); // Mock signature for testing
+    const userId = testUserId;
+    const amount = '10000000'; // 10 USDC (6 decimals)
+    
+    // Create and sign the payment message
+    const message = `Payment from ${userId} to ${MERCHANT_ID} for ${amount} USDC`;
+    const signature = await testUserWallet.signMessage(message);
 
     const response = await axios.post(`${API_BASE}/api/payments/clear`, {
-      userId: USER_ID,
+      userId,
       merchantId: MERCHANT_ID,
-      amount: '10000000', // 10 USDC
+      amount,
       message,
       signature,
     });

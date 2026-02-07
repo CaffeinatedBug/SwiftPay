@@ -168,7 +168,7 @@ export function UserPanel() {
   };
 
   return (
-    <div ref={panelRef} className="relative flex h-full flex-col p-6">
+    <div ref={panelRef} className="relative p-6">
       {/* Wallet Connection & Profile */}
       <div className="mb-6 flex items-center justify-end">
         <UserProfileDropdown />
@@ -470,7 +470,7 @@ export function UserPanel() {
 
       {/* Recent Transactions */}
       {wallet.isConnected && (
-        <Card className="status-card flex-1">
+        <Card className="status-card">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 font-mono text-sm">
               <ArrowUpRight className="h-4 w-4 text-primary" />

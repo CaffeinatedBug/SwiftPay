@@ -258,11 +258,22 @@ app.post('/api/payments/clear', async (req: Request, res: Response) => {
 
     console.log(`💳 Processing payment: ${userId} -> ${merchantId}, ${amount} USDC`);
 
-    // Convert amount to bigint (USDC has 6 decimals)
+    // Convert amount to BigInt (USDC has 6 decimals)
     const amountBigInt = BigInt(amount);
 
     // Clear payment via Yellow Network (instant, off-chain)
     const result = await yellowHub.clearPayment(userId, merchantId, amountBigInt, signature);
+
+    // Get updated channel balances
+    let userChannelBalance = '0';
+    let merchantChannelBalance = '0';
+    
+    try {
+      userChannelBalance = await yellowHub.getUserChannelBalance(userId);
+      merchantChannelBalance = await yellowHub.getMerchantChannelBalance(merchantId);
+    } catch (error) {
+      console.warn('Could not fetch channel balances:', error);
+    }
 
     res.json({
       success: true,
@@ -271,8 +282,8 @@ app.post('/api/payments/clear', async (req: Request, res: Response) => {
         merchantId,
         amount: amount.toString(),
         timestamp: result.timestamp,
-        userChannelBalance: result.userChannelBalance,
-        merchantChannelBalance: result.merchantChannelBalance
+        userChannelBalance,
+        merchantChannelBalance
       },
       message: 'Payment cleared instantly via Yellow Network (<200ms)'
     });
