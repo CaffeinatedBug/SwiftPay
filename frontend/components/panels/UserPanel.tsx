@@ -144,12 +144,13 @@ export function UserPanel() {
     // Clear payment via Yellow Network (<200ms instant)
     await yellow.clearPayment(
       scannedPayment.merchantAddress,
-      scannedPayment.amount.toString()
+      scannedPayment.amount.toString(),
+      scannedPayment.currency || 'USDC'
     );
     
     toast({
       title: "⚡ Payment Cleared Instantly",
-      description: `Paid $${scannedPayment.amount} to ${scannedPayment.merchantName} via Yellow Network`,
+      description: `Paid $${scannedPayment.amount} ${scannedPayment.currency} to ${scannedPayment.merchantName} via Yellow Network`,
     });
     
     // Clean up after modal auto-closes

@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Copy, Check, QrCode, Clock, DollarSign } from 'lucide-react';
+import { X, Copy, Check, QrCode, Clock, DollarSign, Loader2 } from 'lucide-react';
+import { useAccount } from 'wagmi';
+import { createPaymentPayload, generateQRCodeDataURL } from '@/lib/qr/utils';
+import type { PaymentCurrency } from '@/lib/qr/types';
 
 interface InlineQRDisplayProps {
   onClose: () => void;
@@ -15,11 +18,50 @@ interface InlineQRDisplayProps {
 }
 
 export function InlineQRDisplay({ onClose, onPaymentReceived }: InlineQRDisplayProps) {
+  const { address } = useAccount();
   const [amount, setAmount] = useState('25.00');
-  const [currency, setCurrency] = useState('USDC');
+  const [currency, setCurrency] = useState<PaymentCurrency>('USDC');
   const [copied, setCopied] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(300);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
+  // Generate real QR code whenever amount, currency, or address changes
+  const generateQR = useCallback(async () => {
+    if (!address) return;
+    
+    setQrLoading(true);
+    try {
+      const merchantAddress = address as `0x${string}`;
+      const payload = createPaymentPayload(
+        merchantAddress,
+        'SwiftPay Merchant',
+        amount,
+        currency,
+        {
+          preferredChain: 'sepolia',
+          expiresIn: timeRemaining * 1000,
+          memo: `Payment of ${amount} ${currency}`,
+        }
+      );
+      const dataUrl = await generateQRCodeDataURL(payload, { size: 280 });
+      setQrDataUrl(dataUrl);
+    } catch (err) {
+      console.error('Failed to generate QR code:', err);
+    } finally {
+      setQrLoading(false);
+    }
+  }, [address, amount, currency, timeRemaining]);
+
+  // Generate QR on mount and when params change (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      generateQR();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [generateQR]);
+
+  // Countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
@@ -35,43 +77,17 @@ export function InlineQRDisplay({ onClose, onPaymentReceived }: InlineQRDisplayP
   }, []);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText('0x742d35Cc6e7185B4C5432aB4B8D8f3E');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const generateQRPattern = () => {
-    const size = 21;
-    const pattern: boolean[][] = [];
-    const seed = Math.random();
-    
-    const random = (x: number, y: number) => {
-      const n = Math.sin(seed * 9999 + x * 127 + y * 311) * 43758.5453;
-      return n - Math.floor(n);
-    };
-
-    for (let y = 0; y < size; y++) {
-      pattern[y] = [];
-      for (let x = 0; x < size; x++) {
-        const isTopLeft = x < 7 && y < 7;
-        const isTopRight = x >= size - 7 && y < 7;
-        const isBottomLeft = x < 7 && y >= size - 7;
-        
-        if (isTopLeft || isTopRight || isBottomLeft) {
-          const localX = isTopRight ? x - (size - 7) : x;
-          const localY = isBottomLeft ? y - (size - 7) : y;
-          const isOuter = localX === 0 || localX === 6 || localY === 0 || localY === 6;
-          const isInner = localX >= 2 && localX <= 4 && localY >= 2 && localY <= 4;
-          pattern[y][x] = isOuter || isInner;
-        } else {
-          pattern[y][x] = random(x, y) > 0.5;
-        }
-      }
+    if (address) {
+      navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
-    return pattern;
   };
 
-  const qrPattern = generateQRPattern();
+  const merchantDisplay = address 
+    ? `${address.slice(0, 6)}...${address.slice(-4)}` 
+    : 'Connect Wallet';
+
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
 
@@ -99,26 +115,21 @@ export function InlineQRDisplay({ onClose, onPaymentReceived }: InlineQRDisplayP
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="relative">
               <div className="absolute -inset-3 rounded-2xl bg-blue-500/10 blur-xl" />
-              <div className="relative rounded-2xl border-2 border-blue-300 bg-white p-5 shadow-lg">
-                <div 
-                  className="grid gap-0"
-                  style={{ 
-                    gridTemplateColumns: `repeat(21, 1fr)`,
-                    width: "210px",
-                    height: "210px"
-                  }}
-                >
-                  {qrPattern.flat().map((filled, i) => (
-                    <div
-                      key={i}
-                      className={`aspect-square ${filled ? "bg-black" : "bg-white"}`}
-                    />
-                  ))}
-                </div>
-                
-                <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg">
-                  <DollarSign className="h-6 w-6 text-white" />
-                </div>
+              <div className="relative flex items-center justify-center rounded-2xl border-2 border-blue-300 bg-white p-3 shadow-lg" style={{ minWidth: '240px', minHeight: '240px' }}>
+                {qrLoading ? (
+                  <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
+                ) : qrDataUrl ? (
+                  <img 
+                    src={qrDataUrl} 
+                    alt={`Payment QR: ${amount} ${currency}`}
+                    className="h-full w-full"
+                    style={{ imageRendering: 'pixelated' }}
+                  />
+                ) : (
+                  <div className="text-center text-sm text-gray-400">
+                    Connect wallet to generate QR
+                  </div>
+                )}
               </div>
             </div>
 
@@ -149,7 +160,7 @@ export function InlineQRDisplay({ onClose, onPaymentReceived }: InlineQRDisplayP
                 <span className="text-lg font-semibold text-gray-600">{currency}</span>
               </div>
               <Badge variant="outline" className="mt-3 border-blue-200 bg-blue-100 text-blue-700">
-                Arbitrum
+                Sepolia
               </Badge>
             </div>
 
@@ -170,7 +181,7 @@ export function InlineQRDisplay({ onClose, onPaymentReceived }: InlineQRDisplayP
               <Label htmlFor="currency" className="text-xs font-medium text-gray-600">
                 Currency
               </Label>
-              <Select value={currency} onValueChange={setCurrency}>
+              <Select value={currency} onValueChange={(v) => setCurrency(v as PaymentCurrency)}>
                 <SelectTrigger id="currency" className="rounded-xl border-gray-200">
                   <SelectValue />
                 </SelectTrigger>
@@ -186,7 +197,7 @@ export function InlineQRDisplay({ onClose, onPaymentReceived }: InlineQRDisplayP
               <Label className="text-xs font-medium text-gray-600">Merchant Address</Label>
               <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
                 <span className="flex-1 text-xs font-mono text-gray-700 truncate">
-                  0x742d35Cc6e7185B4C5432aB4B8D8f3E
+                  {address || 'Not connected'}
                 </span>
                 <Button
                   variant="ghost"

@@ -26,9 +26,20 @@ interface Payment {
   customerAddress: string;
 }
 
+interface TrackedPayment {
+  id: string;
+  userId: string;
+  merchantId: string;
+  amount: string;
+  currency: string;
+  timestamp: number;
+  status: 'pending' | 'settled';
+}
+
 interface POSTerminalProps {
   onGenerateQR?: () => void;
   onPaymentComplete?: (payment: Payment) => void;
+  pendingPayments?: TrackedPayment[];
   className?: string;
 }
 
@@ -37,6 +48,7 @@ type TerminalState = 'idle' | 'waiting' | 'processing' | 'success' | 'error';
 export function POSTerminal({ 
   onGenerateQR, 
   onPaymentComplete,
+  pendingPayments = [],
   className = '' 
 }: POSTerminalProps) {
   const [state, setState] = useState<TerminalState>('idle');
@@ -106,6 +118,24 @@ export function POSTerminal({
     };
     handlePaymentReceived(mockPayment);
   }, [handlePaymentReceived]);
+
+  // Watch for real incoming payments via pendingPayments prop
+  const lastPendingCountRef = useRef(pendingPayments.length);
+  useEffect(() => {
+    if (pendingPayments.length > lastPendingCountRef.current) {
+      // A new payment just came in
+      const latest = pendingPayments[pendingPayments.length - 1];
+      const realPayment: Payment = {
+        amount: latest.amount,
+        currency: latest.currency || 'USDC',
+        timestamp: latest.timestamp,
+        transactionId: latest.id,
+        customerAddress: latest.userId,
+      };
+      handlePaymentReceived(realPayment);
+    }
+    lastPendingCountRef.current = pendingPayments.length;
+  }, [pendingPayments.length, handlePaymentReceived]);
 
   const getStateConfig = () => {
     switch (state) {
@@ -265,7 +295,7 @@ export function POSTerminal({
                   className="w-full gap-2 font-mono text-xs"
                   size="sm"
                 >
-                  Simulate Payment (Demo)
+                  Test Payment (Demo)
                 </Button>
               </div>
             )}

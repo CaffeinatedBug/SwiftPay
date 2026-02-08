@@ -5,6 +5,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
 import { Camera, CheckCircle2, AlertCircle, X, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { decodePayload } from '@/lib/qr/utils';
 
 interface ScannedPaymentData {
   merchantAddress: string;
@@ -29,6 +30,7 @@ export function InlineQRScanner({
   const [isScanning, setIsScanning] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scannedData, setScannedData] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -53,21 +55,60 @@ export function InlineQRScanner({
     
     setScannedData(data);
     setIsScanning(false);
+    setScanError(null);
     
-    // Parse the QR data (format: merchant:address:amount:value:currency:USDC)
-    // For demo, we'll use mock data
-    const parsedPayment: ScannedPaymentData = {
-      merchantAddress: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-      merchantName: "Demo Coffee Shop",
-      amount: 12.50,
-      currency: "USDC",
-    };
+    // Parse the QR data - try swiftpay:// protocol first
+    let parsedPayment: ScannedPaymentData | null = null;
+
+    if (data.startsWith('swiftpay://')) {
+      const decoded = decodePayload(data);
+      if (decoded.valid && decoded.payload) {
+        parsedPayment = {
+          merchantAddress: decoded.payload.merchantAddress,
+          merchantName: decoded.payload.merchantName || 'Merchant',
+          amount: parseFloat(decoded.payload.amount),
+          currency: decoded.payload.currency || 'USDC',
+        };
+      } else {
+        setScanError(decoded.error || 'Invalid QR code');
+        return;
+      }
+    } else {
+      // Fallback: try to parse as JSON
+      try {
+        const json = JSON.parse(data);
+        if (json.merchantAddress && json.amount) {
+          parsedPayment = {
+            merchantAddress: json.merchantAddress,
+            merchantName: json.merchantName || 'Merchant',
+            amount: parseFloat(json.amount),
+            currency: json.currency || 'USDC',
+          };
+        }
+      } catch {
+        // Not JSON - try simple format: merchant:address:amount:value:currency:USDC
+        const parts = data.split(':');
+        if (parts.length >= 6 && parts[0] === 'merchant') {
+          parsedPayment = {
+            merchantAddress: parts[1],
+            merchantName: 'Merchant',
+            amount: parseFloat(parts[3]),
+            currency: parts[5] || 'USDC',
+          };
+        }
+      }
+    }
+
+    if (!parsedPayment) {
+      setScanError('Unrecognized QR code format');
+      return;
+    }
 
     // Short delay to show success state, then trigger callback
     setTimeout(() => {
-      onScanSuccess(parsedPayment);
+      onScanSuccess(parsedPayment!);
       onOpenChange(false);
-    }, 1500);
+    }, 1000);
   }, [onScanSuccess, onOpenChange]);
 
   const startQRDetection = useCallback(() => {
@@ -90,10 +131,8 @@ export function InlineQRScanner({
         }
       }, 100);
     } else {
-      // Fallback: simulate QR detection after 3 seconds for demo
-      setTimeout(() => {
-        handleQRDetected('merchant:0x742d35Cc6e7185B4C5432aB4B8D8f3E:amount:25.00:currency:USDC');
-      }, 3000);
+      // No native BarcodeDetector - show message instead of auto-simulating
+      console.warn('BarcodeDetector API not available in this browser. Use Chrome or Edge for QR scanning.');
     }
   }, [handleQRDetected]);
 
@@ -121,6 +160,7 @@ export function InlineQRScanner({
     stopCamera();
     setScannedData(null);
     setHasPermission(null);
+    setScanError(null);
   }, [stopCamera]);
 
   useEffect(() => {
@@ -196,12 +236,31 @@ export function InlineQRScanner({
               )}
 
               {/* Success State */}
-              {scannedData && (
+              {scannedData && !scanError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
                   <div className="text-center">
                     <CheckCircle2 className="mx-auto mb-3 h-16 w-16 text-success" />
                     <p className="font-mono text-lg font-semibold text-white">QR Detected!</p>
                     <p className="text-sm text-white/70 mt-1">Processing payment...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Scan Error */}
+              {scanError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                  <div className="text-center px-4">
+                    <AlertCircle className="mx-auto mb-3 h-16 w-16 text-destructive" />
+                    <p className="font-mono text-sm font-semibold text-white mb-2">Invalid QR Code</p>
+                    <p className="text-xs text-white/70">{scanError}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setScanError(null); setScannedData(null); startCamera(); }}
+                      className="mt-3"
+                    >
+                      Try Again
+                    </Button>
                   </div>
                 </div>
               )}

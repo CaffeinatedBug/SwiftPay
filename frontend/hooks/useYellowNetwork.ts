@@ -1,5 +1,5 @@
 // Yellow Network Integration Hook
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
@@ -11,11 +11,14 @@ interface YellowChannel {
   status: 'opening' | 'active' | 'closing' | 'closed';
 }
 
-interface ClearedPayment {
+interface TrackedPayment {
+  id: string;
   userId: string;
+  merchantId: string;
   amount: string;
+  currency: string;
   timestamp: number;
-  channelBalance: string;
+  status: 'pending' | 'settled';
 }
 
 export function useYellowNetwork() {
@@ -23,53 +26,94 @@ export function useYellowNetwork() {
   const { signMessageAsync } = useSignMessage();
   const [userChannel, setUserChannel] = useState<YellowChannel | null>(null);
   const [merchantChannel, setMerchantChannel] = useState<YellowChannel | null>(null);
-  const [clearedPayments, setClearedPayments] = useState<ClearedPayment[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<TrackedPayment[]>([]);
+  const [settledPayments, setSettledPayments] = useState<TrackedPayment[]>([]);
+  const [pendingTotal, setPendingTotal] = useState('0.00');
+  const [settledTotal, setSettledTotal] = useState('0.00');
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // WebSocket connection for real-time merchant notifications
   useEffect(() => {
     if (!address) return;
 
-    const websocket = new WebSocket(WS_URL);
-    
-    websocket.onopen = () => {
-      console.log('✅ Connected to Yellow Hub WebSocket');
-      websocket.send(JSON.stringify({
-        type: 'REGISTER',
-        merchantId: address
-      }));
-    };
-
-    websocket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log('📨 WebSocket message:', data);
+    function connect() {
+      const websocket = new WebSocket(`${WS_URL}?merchantId=${address}`);
       
-      if (data.type === 'PAYMENT_CLEARED') {
-        setClearedPayments(prev => [...prev, data.payment]);
-      } else if (data.type === 'SETTLEMENT_COMPLETE') {
-        console.log('✅ Settlement complete:', data);
-      }
-    };
+      websocket.onopen = () => {
+        console.log('✅ Connected to Yellow Hub WebSocket');
+      };
 
-    websocket.onerror = (error) => {
-      console.error('❌ WebSocket error:', error);
-    };
+      websocket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('📨 WebSocket message:', data.type, data);
+          
+          switch (data.type) {
+            case 'INITIAL_STATE':
+              setPendingPayments(data.pendingPayments || []);
+              setSettledPayments(data.settledPayments || []);
+              setPendingTotal(data.pendingTotal || '0.00');
+              setSettledTotal(data.settledTotal || '0.00');
+              break;
+              
+            case 'PAYMENT_CLEARED':
+              setPendingPayments(data.pendingPayments || []);
+              setSettledPayments(data.settledPayments || []);
+              setPendingTotal(data.pendingTotal || '0.00');
+              setSettledTotal(data.settledTotal || '0.00');
+              break;
+              
+            case 'SETTLEMENT_COMPLETE':
+              setPendingPayments(data.pendingPayments || []);
+              setSettledPayments(data.settledPayments || []);
+              setPendingTotal(data.pendingTotal || '0.00');
+              setSettledTotal(data.settledTotal || '0.00');
+              break;
+              
+            case 'SETTLEMENT_FAILED':
+              console.error('❌ Settlement failed:', data);
+              break;
 
-    websocket.onclose = () => {
-      console.log('⚠️ WebSocket closed');
-    };
+            default:
+              console.log('Unknown WebSocket message type:', data.type);
+          }
+        } catch (err) {
+          console.error('Failed to parse WebSocket message:', err);
+        }
+      };
 
-    setWs(websocket);
+      websocket.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+      };
+
+      websocket.onclose = () => {
+        console.log('⚠️ WebSocket closed, reconnecting in 3s...');
+        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      };
+
+      wsRef.current = websocket;
+      setWs(websocket);
+    }
+
+    connect();
 
     return () => {
-      websocket.close();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // prevent reconnect on cleanup
+        wsRef.current.close();
+      }
     };
   }, [address]);
 
   // Open user payment channel
-  const openUserChannel = async (initialBalance: string) => {
+  const openUserChannel = useCallback(async (initialBalance: string) => {
     if (!address) {
       setError('Wallet not connected');
       return;
@@ -94,19 +138,17 @@ export function useYellowNetwork() {
 
       const data = await response.json();
       setUserChannel(data.channel);
-      console.log('✅ User channel opened:', data.channel);
       return data.channel;
     } catch (err: any) {
       setError(err.message);
-      console.error('❌ Error opening user channel:', err);
       throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, [address]);
 
   // Open merchant receiving channel
-  const openMerchantChannel = async () => {
+  const openMerchantChannel = useCallback(async () => {
     if (!address) {
       setError('Wallet not connected');
       return;
@@ -130,19 +172,17 @@ export function useYellowNetwork() {
 
       const data = await response.json();
       setMerchantChannel(data.channel);
-      console.log('✅ Merchant channel opened:', data.channel);
       return data.channel;
     } catch (err: any) {
       setError(err.message);
-      console.error('❌ Error opening merchant channel:', err);
       throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, [address]);
 
   // Clear payment instantly via Yellow Network (<200ms)
-  const clearPayment = async (merchantId: string, amount: string) => {
+  const clearPayment = useCallback(async (merchantId: string, amount: string, currency: string = 'USDC') => {
     if (!address) {
       setError('Wallet not connected');
       return;
@@ -152,8 +192,8 @@ export function useYellowNetwork() {
     setError(null);
 
     try {
-      // Sign payment message with MetaMask
-      const message = `Pay ${amount} USDC to ${merchantId} via Yellow Network`;
+      // Sign payment message with wallet
+      const message = `Pay ${amount} ${currency} to ${merchantId} via Yellow Network`;
       const signature = await signMessageAsync({ message });
 
       const response = await fetch(`${BACKEND_URL}/api/payments/clear`, {
@@ -163,34 +203,30 @@ export function useYellowNetwork() {
           userId: address,
           merchantId,
           amount,
+          currency,
+          message,
           signature
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Payment failed: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Payment failed: ${response.statusText}`);
       }
 
       const data = await response.json();
       console.log('✅ Payment cleared instantly:', data);
-      
-      // Update user channel balance
-      if (data.userChannelBalance) {
-        setUserChannel(prev => prev ? { ...prev, balance: data.userChannelBalance } : null);
-      }
-
       return data;
     } catch (err: any) {
       setError(err.message);
-      console.error('❌ Payment error:', err);
       throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, [address, signMessageAsync]);
 
-  // Settle merchant payments on-chain
-  const settleMerchantPayments = async () => {
+  // Settle merchant payments - move pending → settled
+  const settleMerchantPayments = useCallback(async () => {
     if (!address) {
       setError('Wallet not connected');
       return;
@@ -209,27 +245,23 @@ export function useYellowNetwork() {
       });
 
       if (!response.ok) {
-        throw new Error(`Settlement failed: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Settlement failed: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('✅ Settlement initiated:', data);
-      
-      // Clear local cleared payments after settlement
-      setClearedPayments([]);
-
+      console.log('✅ Settlement complete:', data);
       return data;
     } catch (err: any) {
       setError(err.message);
-      console.error('❌ Settlement error:', err);
       throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, [address]);
 
   // Get user channel balance
-  const getUserBalance = async () => {
+  const getUserBalance = useCallback(async () => {
     if (!address) return null;
 
     try {
@@ -238,34 +270,21 @@ export function useYellowNetwork() {
       
       const data = await response.json();
       return data.balance;
-    } catch (err) {
-      console.error('Error fetching user balance:', err);
+    } catch {
       return null;
     }
-  };
-
-  // Get cleared payments for merchant
-  const getClearedPayments = async () => {
-    if (!address) return [];
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/payments/cleared/${address}`);
-      if (!response.ok) return [];
-      
-      const data = await response.json();
-      setClearedPayments(data.payments || []);
-      return data.payments || [];
-    } catch (err) {
-      console.error('Error fetching cleared payments:', err);
-      return [];
-    }
-  };
+  }, [address]);
 
   return {
     // State
     userChannel,
     merchantChannel,
-    clearedPayments,
+    pendingPayments,
+    settledPayments,
+    pendingTotal,
+    settledTotal,
+    // Legacy compat - clearedPayments = pendingPayments for backward compat
+    clearedPayments: pendingPayments,
     loading,
     error,
     isConnected: !!ws && ws.readyState === WebSocket.OPEN,
@@ -276,6 +295,5 @@ export function useYellowNetwork() {
     clearPayment,
     settleMerchantPayments,
     getUserBalance,
-    getClearedPayments
   };
 }

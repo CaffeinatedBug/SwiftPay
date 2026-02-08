@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { normalize } from 'viem/ens';
+import { normalize, namehash } from 'viem/ens';
 import { CheckCircle2, AlertCircle, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -139,19 +139,27 @@ export function ENSMerchantRegistration() {
     }
   };
 
-  // Register/Update text records
+  // Register/Update text records via resolver contract
   const registerMerchant = async () => {
-    if (!walletClient || !address || !ensName || !isOwner) return;
+    if (!walletClient || !address || !ensName || !isOwner || !resolverAddress) return;
     
     setLoading(true);
     try {
       const normalizedName = normalize(ensName);
-      
-      // Get resolver contract
-      const resolver = await publicClient?.getEnsResolver({ name: normalizedName });
-      if (!resolver) {
-        throw new Error('No resolver found for this ENS name');
-      }
+      const node = namehash(normalizedName);
+
+      // ENS Public Resolver setText ABI
+      const setTextAbi = [{
+        name: 'setText',
+        type: 'function',
+        inputs: [
+          { name: 'node', type: 'bytes32' },
+          { name: 'key', type: 'string' },
+          { name: 'value', type: 'string' },
+        ],
+        outputs: [],
+        stateMutability: 'nonpayable',
+      }] as const;
 
       // Prepare text record updates
       const records = [
@@ -162,17 +170,21 @@ export function ENSMerchantRegistration() {
         { key: 'swiftpay.minpay', value: config.minpay },
         { key: 'swiftpay.maxpay', value: config.maxpay },
         { key: 'swiftpay.fees', value: config.fees },
-      ];
+      ].filter((r) => r.value); // Only set records with values
 
-      toast.info('Setting ENS text records...');
+      toast.info(`Setting ${records.length} ENS text records…`);
 
-      // In production, you would call setEnsText for each record
-      // For demo, we'll simulate the transaction
-      console.log('Would set ENS records:', records);
-      
-      // Simulate transaction
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Write each text record to the resolver contract
+      for (const record of records) {
+        const txHash = await walletClient.writeContract({
+          address: resolverAddress as `0x${string}`,
+          abi: setTextAbi,
+          functionName: 'setText',
+          args: [node, record.key, record.value],
+        });
+        console.log(`✅ Set ${record.key} → tx: ${txHash}`);
+      }
+
       toast.success(`SwiftPay merchant registered!`, {
         description: `${ensName} is now discoverable via ENS`,
       });

@@ -1,15 +1,17 @@
 'use client';
 
-import { useEnsName, useEnsAvatar, useEnsAddress } from 'wagmi';
+import { useEnsName, useEnsAvatar, useEnsAddress, useEnsResolver, useEnsText } from 'wagmi';
 import { normalize } from 'viem/ens';
 import { mainnet } from 'wagmi/chains';
 
 interface ENSProfileProps {
   ensName?: string;
   address?: `0x${string}`;
+  /** When true, also display swiftpay.* text records (settlement preferences) */
+  showTextRecords?: boolean;
 }
 
-export function ENSProfile({ ensName, address }: ENSProfileProps) {
+export function ENSProfile({ ensName, address, showTextRecords = false }: ENSProfileProps) {
   // Forward resolution: name → address
   const { data: resolvedAddress, isLoading: addressLoading } = useEnsAddress({
     name: ensName ? normalize(ensName) : undefined,
@@ -25,6 +27,25 @@ export function ENSProfile({ ensName, address }: ENSProfileProps) {
   // Avatar resolution
   const { data: avatarUrl, isLoading: avatarLoading } = useEnsAvatar({
     name: ensName ? normalize(ensName) : resolvedName ? normalize(resolvedName) : undefined,
+    chainId: mainnet.id,
+  });
+
+  // Resolver address (qualifies useEnsResolver for prize)
+  const { data: resolverAddress } = useEnsResolver({
+    name: ensName ? normalize(ensName) : resolvedName ? normalize(resolvedName) : undefined,
+    chainId: mainnet.id,
+  });
+
+  // Custom text records via useEnsText (qualifies for Creative DeFi prize)
+  const effectiveName = ensName ? normalize(ensName) : resolvedName ? normalize(resolvedName) : undefined;
+  const { data: settlementChain } = useEnsText({
+    name: effectiveName,
+    key: 'swiftpay.chain',
+    chainId: mainnet.id,
+  });
+  const { data: settlementSchedule } = useEnsText({
+    name: effectiveName,
+    key: 'swiftpay.schedule',
     chainId: mainnet.id,
   });
 
@@ -54,11 +75,32 @@ export function ENSProfile({ ensName, address }: ENSProfileProps) {
               {displayAddress}
             </p>
           )}
+          {resolverAddress && (
+            <p className="text-gray-500 text-[10px] font-mono truncate">
+              Resolver: {String(resolverAddress).slice(0, 10)}…{String(resolverAddress).slice(-4)}
+            </p>
+          )}
           {isLoading && (
             <p className="text-yellow-400 text-xs">Resolving ENS...</p>
           )}
         </div>
       </div>
+
+      {/* Settlement preferences from ENS text records */}
+      {showTextRecords && (settlementChain || settlementSchedule) && (
+        <div className="mt-3 pt-3 border-t border-gray-700 flex gap-2">
+          {settlementChain && (
+            <span className="bg-yellow-400/10 text-yellow-400 text-xs px-2 py-1 rounded-full">
+              ⛓ {settlementChain}
+            </span>
+          )}
+          {settlementSchedule && (
+            <span className="bg-blue-400/10 text-blue-400 text-xs px-2 py-1 rounded-full">
+              🕐 {settlementSchedule}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
